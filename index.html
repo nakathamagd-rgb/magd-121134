@@ -262,6 +262,7 @@
       <button class="cta" id="soloBtn" data-i18n="solo">لعب فردي 👤</button>
       <button class="cta alt" id="duoBtn" data-i18n="duo">لاعبان 👥</button>
     </div>
+    <p class="sub" id="resumeNote" style="min-height:1.4em"></p>
     <div class="btnrow">
       <button class="ghost" id="levelsBtn" data-i18n="levels">🚀 المراحل</button>
       <button class="ghost" id="shopBtn" data-i18n="shop">🛒 المتجر</button>
@@ -459,39 +460,45 @@ function maxLives(pi){return 3+upLv("life",pi);}
 function coinMult(pi){return (1+.15*upLv("coin",pi))*1;}
 function fireGap(p){return Math.max(.05,(p.tripleT>0?.14:.19)*Math.pow(.96,upLv("rate",p.pi))/shipOf(p.pi).rate);}
 function bulletDmg(pi){return (1+upLv("dmg",pi)*.25)*shipOf(pi).dmg;}
-function store(k,v){try{window.storage&&window.storage.set(k,typeof v==="string"?v:String(v)).catch(()=>{});}catch(e){}}
+function store(k,v){v=typeof v==="string"?v:String(v);
+  try{localStorage.setItem(k,v);}catch(e){}
+  try{window.storage&&window.storage.set(k,v).catch(()=>{});}catch(e){}}
+function sread(k){try{return localStorage.getItem(k);}catch(e){return null;}}
+async function sget(k){
+  const l=sread(k);if(l!=null)return{value:l};
+  try{if(window.storage)return await window.storage.get(k).catch(()=>null);}catch(e){}
+  return null;
+}
 (async()=>{
   await Promise.resolve(); /* يضمن تشغيل التهيئة بعد تعريف الواجهة بالكامل */
   try{
-    if(window.storage){
-      const h=await window.storage.get("space-hi").catch(()=>null);
+      const h=await sget("space-hi");
       if(h&&h.value)hiScore=h.value|0;
-      const u=await window.storage.get("space-unlocked").catch(()=>null);
+      const u=await sget("space-unlocked");
       if(u&&u.value)unlocked=Math.max(1,u.value|0);
-      const c=await window.storage.get("space-cleared").catch(()=>null);
+      const c=await sget("space-cleared");
       if(c&&c.value){try{cleared=JSON.parse(c.value);}catch(e){}}
-      const s=await window.storage.get("space-settings").catch(()=>null);
+      const s=await sget("space-settings");
       if(s&&s.value){try{Object.assign(settings,JSON.parse(s.value));}catch(e){}}
       for(const pi of[0,1]){
         const K=PKEYS[pi];
-        const co=await window.storage.get(K[0]).catch(()=>null);
+        const co=await sget(K[0]);
         if(co&&co.value)prof[pi].coins=co.value|0;
-        const up=await window.storage.get(K[1]).catch(()=>null);
+        const up=await sget(K[1]);
         if(up&&up.value){try{prof[pi].ups=JSON.parse(up.value)||{};}catch(e){}}
-        const sh=await window.storage.get(K[2]).catch(()=>null);
+        const sh=await sget(K[2]);
         if(sh&&sh.value){try{prof[pi].ownedShips=JSON.parse(sh.value)||{};prof[pi].ownedShips[0]=true;}catch(e){}}
-        const ss=await window.storage.get(K[3]).catch(()=>null);
+        const ss=await sget(K[3]);
         if(ss&&ss.value!=null&&prof[pi].ownedShips[ss.value|0])prof[pi].shipSel=ss.value|0;
-        const nm=await window.storage.get(K[4]).catch(()=>null);
+        const nm=await sget(K[4]);
         if(nm&&nm.value){try{prof[pi].shipNames=JSON.parse(nm.value)||{};}catch(e){}}
       }
-      const t=await window.storage.get("space-theme").catch(()=>null);
+      const t=await sget("space-theme");
       if(t&&t.value!=null)themeIdx=Math.min(THEMES.length-1,t.value|0);
-    }
   }catch(e){}
   muted=!settings.sound;
   ui.hi.textContent=hiScore;
-  applyLang(); applyTheme(themeIdx); buildThemeSwatches(); syncTogs(); buildGrid(); updateCoinsLbl(); applyVolumes();
+  applyLang(); applyTheme(themeIdx); buildThemeSwatches(); syncTogs(); buildGrid(); updateCoinsLbl(); applyVolumes(); updateResumeNote();
 })();
 function saveSettings(){store("space-settings",JSON.stringify(settings));}
 
@@ -1318,6 +1325,10 @@ function startLevel(n){
   if(c.bossL)spawnBoss();
   tone(520,780,.15,"triangle",.12);
 }
+function updateResumeNote(){
+  const el=$("resumeNote");
+  if(el)el.textContent=unlocked>1?"▸ ستكمل من المرحلة "+unlocked:"";
+}
 function banner(txt){
   ui.banner.textContent=txt;ui.banner.style.opacity=1;ui.banner.style.transition="none";
   requestAnimationFrame(()=>{ui.banner.style.transition="opacity 1.2s ease .9s";ui.banner.style.opacity=0;});
@@ -1390,6 +1401,7 @@ function completeLevel(){
   levelDone=true;state="done";SFX.win();
   cleared[level]=true;store("space-cleared",JSON.stringify(cleared));
   if(level+1>unlocked&&level<MAX_LEVELS){unlocked=level+1;store("space-unlocked",unlocked);}
+  updateResumeNote();
   const sc=totalScore();
   if(sc>hiScore){hiScore=sc;store("space-hi",hiScore);ui.hi.textContent=hiScore;}
   $("doneLv").textContent=" أكملت المرحلة "+level;
