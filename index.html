@@ -149,6 +149,9 @@
     font-size:11px;color:var(--coral)}
   .lvbtn.current{box-shadow:0 0 0 2px var(--accent),0 0 16px color-mix(in srgb,var(--accent) 45%,transparent);
     animation:pulse 1.6s ease-in-out infinite}
+  #lvlPager{display:flex;align-items:center;justify-content:center;gap:10px;margin:4px 0 2px}
+  .pgb{width:56px;height:44px;font-size:22px;line-height:1;padding:0 12px;flex:none}
+  .pgl{font-weight:800;color:var(--paper);letter-spacing:.5px;min-width:110px;text-align:center;font-variant-numeric:tabular-nums}
   @keyframes pulse{50%{box-shadow:0 0 0 2px var(--accent),0 0 26px color-mix(in srgb,var(--accent) 70%,transparent)}}
 
   /* ===== الإعدادات ===== */
@@ -308,6 +311,7 @@
     <h1 style="font-size:clamp(30px,6.5vw,48px)"><span data-i18n="lvT1">اختر</span> <em data-i18n="lvT2">المرحلة</em></h1>
     <div class="divider"><i></i><b>◆</b><i></i></div>
     <p class="sub"><span id="lvlProg"></span></p>
+    <div id="lvlPager"><button class="ghost pgb" id="pgPrev">‹</button><span id="pgLbl" class="pgl"></span><button class="ghost pgb" id="pgNext">›</button></div>
     <div id="lvlGrid"></div>
     <button class="ghost" id="backMenu1" data-i18n="back">رجوع</button>
   </div>
@@ -407,7 +411,7 @@
 const cv=document.getElementById("cv"), ctx=cv.getContext("2d");
 const W=()=>cv.clientWidth, H=()=>cv.clientHeight;
 const REDUCED=matchMedia("(prefers-reduced-motion: reduce)").matches;
-const MAX_LEVELS=100;
+const MAX_LEVELS=3100;
 
 const THEMES=[
   {name:"ليل الصحراء", ink:"#0B0E1A",deep:"#181E38",player:"#FFC24B",enemy:"#FF5D73",gold:"#FFC24B",drone:"#9D8CFF",boss:"#FF6B4A",paper:"#E8EEFF",dim:"#8C96B8",panel:"#141936",line:"#2A3358"},
@@ -531,7 +535,7 @@ async function sget(k){
   }catch(e){}
   muted=!settings.sound;
   ui.hi.textContent=hiScore;
-  applyLang(); applyTheme(themeIdx); buildThemeSwatches(); syncTogs(); buildGrid(); updateCoinsLbl(); applyVolumes(); updateResumeNote();
+  applyLang(); applyTheme(themeIdx); buildThemeSwatches(); syncTogs(); lvlPage=pageOf(unlocked); buildGrid(); updateCoinsLbl(); applyVolumes(); updateResumeNote();
 })();
 function saveSettings(){store("space-settings",JSON.stringify(settings));}
 
@@ -566,12 +570,12 @@ solo:"لعب فردي 👤",duo:"لاعبان 👥",levels:"🚀 المراحل"
 k1:"<b>الأسهم</b> أو <b>WASD</b> حركة بكل الاتجاهات",k2:"<b>مسافة</b> أو <b>V</b> إطلاق",k3:"<b>P</b> إيقاف",k4:"جوال: اسحب في المربع السفلي لطائرتك، أو فعّل أزرار الأسهم من الإعدادات",
 lvT1:"اختر",lvT2:"المرحلة",back:"رجوع",stT1:"الـ",stT2:"إعدادات",shT1:"الـ",shT2:"متجر",paT1:"إيقاف",paT2:"مؤقت",
 lblLang:"اللغة",lblVolShot:"صوت الطلقات 🔫",lblVolMusic:"صوت النغمة 🎵",lblThemes:"ألوان اللعبة",lblSound:"الأصوات",lblMusic:"الموسيقى",lblShake:"اهتزاز الشاشة",
-lblMobile:"تحكم الهاتف: سحب / أسهم",lblRename:"✏️ اسم الطائرة",resetNote:"الطلقات عادت لخط واحد!",
+lblMobile:"تحكم الهاتف: سحب / أسهم",lblRename:"✏️ اسم الطائرة",resetNote:"الطلقات عادت لخط واحد!",linesNote:"انتهت جولات «خطوط الطلقات» — عدت لخط واحد، اشترِه من جديد!",
 tabP1:"اللاعب 1",tabP2:"اللاعب 2",tabUps:"⚡ التطويرات",tabShips:"🚀 الطائرات",
 resume:"كمل",menu:"القائمة",menu2:"القائمة",doneT:"أحسنت!",next:"المرحلة التالية ►",levels2:"المراحل",levels3:"المراحل",again:"إعادة",
 overT:"انتهت اللعبة",retry:"إعادة المرحلة",lblScore:"النقاط",lblGold:"🪙 الذهب",lblLevel:"المرحلة",lblLives:"الدرع",lblBest:"الأفضل",
 levelWord:"المرحلة",bossWord:"الوحش قادم!",prog:"تقدمك",lvlLegend:"اكتمل = ✓ | وحش = ☠ | مقفولة = معتم",
-noteUps:"110 تطويرات: 11 فئة × 10 مستويات — اجمع الذهب 🪙 من اللعب",
+noteUps:"120 تطويرات: 12 فئة × 10 مستويات — اجمع الذهب 🪙 من اللعب",
 noteShips:"100 طائرة! كل طائرة بشكل ولون ومزايا مختلفة — وتظهر فور اختيارها",
 scoreWord:"النقاط",goldWord:"الذهب",balance:"الرصيد",newBest:"رقم قياسي جديد! 🏆",bestKeep:"أفضل رقم:",
 allDone:"أكملت كل الـ100 مرحلة! 🏆",popTriple:"طلقات",popShieldT:"درع!",popSlowT:"إبطاء!",buy:"اشترِ",chosen:"مختارة",maxed:"أقصى",p1:"اللاعب 1",p2:"اللاعب 2"},
@@ -580,12 +584,12 @@ solo:"Play Solo 👤",duo:"Two Players 👥",levels:"🚀 Levels",shop:"🛒 Sho
 k1:"<b>Arrows</b> or <b>WASD</b> move in all directions",k2:"<b>Space</b> or <b>V</b> to shoot",k3:"<b>P</b> pause",k4:"Mobile: drag in your bottom square, or enable arrow buttons in settings",
 lvT1:"Choose",lvT2:"Level",back:"Back",stT1:"",stT2:"Settings",shT1:"",shT2:"Shop",paT1:"Paused",paT2:"",
 lblLang:"Language",lblVolShot:"Shot volume 🔫",lblVolMusic:"Melody volume 🎵",lblThemes:"Color themes",lblSound:"Sound effects",lblMusic:"Music",lblShake:"Screen shake",
-lblMobile:"Mobile control: drag / arrows",lblRename:"✏️ Ship name",resetNote:"Bullets reset to one line!",
+lblMobile:"Mobile control: drag / arrows",lblRename:"✏️ Ship name",resetNote:"Bullets reset to one line!",linesNote:"Shot-lines upgrade expired — back to one line, buy it again!",
 tabP1:"Player 1",tabP2:"Player 2",tabUps:"⚡ Upgrades",tabShips:"🚀 Ships",
 resume:"Resume",menu:"Menu",menu2:"Menu",doneT:"Well done!",next:"Next level ►",levels2:"Levels",levels3:"Levels",again:"Retry",
 overT:"Game Over",retry:"Retry level",lblScore:"Score",lblGold:"🪙 Gold",lblLevel:"Level",lblLives:"Shields",lblBest:"Best",
 levelWord:"Level",bossWord:"BOSS INCOMING!",prog:"Your progress",lvlLegend:"done = ✓ | boss = ☠ | locked = dim",
-noteUps:"110 upgrades: 11 categories × 10 levels — collect gold 🪙 while playing",
+noteUps:"120 upgrades: 12 categories × 10 levels — collect gold 🪙 while playing",
 noteShips:"100 ships! Each with its own shape, color and stats — shown instantly when chosen",
 scoreWord:"Score",goldWord:"Gold",balance:"Balance",newBest:"New record! 🏆",bestKeep:"Best:",
 allDone:"All 100 levels complete! 🏆",popTriple:"shots",popShieldT:"shield!",popSlowT:"slow-mo!",buy:"Buy",chosen:"Selected",maxed:"Max",p1:"Player 1",p2:"Player 2"},
@@ -741,9 +745,16 @@ function syncTogs(){
   $("volMusic").value=settings.volMusic;
   $("togArrows").classList.toggle("on",settings.mobileCtl==="arrows");
 }
+const PAGE=100; /* كل صفحة تعرض 100 مرحلة */
+let lvlPage=0;
+function pageOf(n){return Math.min(Math.ceil(MAX_LEVELS/PAGE)-1,Math.floor((n-1)/PAGE));}
 function buildGrid(){
+  const pages=Math.ceil(MAX_LEVELS/PAGE);
+  if(lvlPage<0)lvlPage=0;
+  if(lvlPage>=pages)lvlPage=pages-1;
+  const s=lvlPage*PAGE+1,e=Math.min(MAX_LEVELS,(lvlPage+1)*PAGE);
   ui.grid.innerHTML="";
-  for(let n=1;n<=MAX_LEVELS;n++){
+  for(let n=s;n<=e;n++){
     const b=document.createElement("button");
     const bossL=n%5===0;
     b.className="lvbtn"+(bossL?" bossL":"")+(n<unlocked||cleared[n]?" done":"")+(n===unlocked?" current":"");
@@ -755,7 +766,12 @@ function buildGrid(){
   }
   const done=Object.keys(cleared).length;
   $("lvlProg").textContent=t("prog")+": "+done+" / "+MAX_LEVELS;
+  $("pgLbl").textContent=s+" – "+e;
+  $("pgPrev").disabled=lvlPage===0;
+  $("pgNext").disabled=lvlPage>=pages-1;
 }
+$("pgPrev").onclick=()=>{lvlPage--;buildGrid();};
+$("pgNext").onclick=()=>{lvlPage++;buildGrid();};
 
 /* ===== رسم المركبة ===== */
 function drawShip(p,moving,inv){
@@ -968,8 +984,9 @@ const BOSS_NAMES=["الوحش القرمزي","أم الأخطار","سيد ال
 /* كل وحش له شكل مختلف تمامًا عن الآخر — لا يتكرر الشكل بين المراحل */
 function spawnBoss(){
   const tier=Math.ceil(level/5);
+  const hpMax=50+Math.min(level,200)*8; /* سقف الدم حتى تبقى المراحل العالية ممكنة */
   boss={x:W()/2,y:-90,r:60+Math.min(tier*6,20),t:0,dir:1,fireT:1.4,
-    hp:50+level*8,maxHp:50+level*8,tier,kind:Math.min(tier,20),
+    hp:hpMax,maxHp:hpMax,tier,kind:Math.min(tier,20),
     name:BOSS_NAMES[(tier-1)%BOSS_NAMES.length],
     wob:Math.random()*7};
   SFX.roar();
@@ -1337,30 +1354,51 @@ function drawPickup(k){
 }
 
 function burst(x,y,color,n,pow=1){
+  /* حلقة صدمة متوسعة عند كل انفجار */
+  if(!REDUCED)parts.push({x,y,vx:0,vy:0,life:.32+.12*pow,t:0,ring:true,c:color,r:4*pow,r2:(44+30*Math.random())*pow});
   if(REDUCED)n=Math.min(n,4);
   for(let i=0;i<n;i++){
     const a=Math.random()*Math.PI*2,s=(40+Math.random()*160)*pow;
     parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.4+Math.random()*.5,t:0,c:color,r:1+Math.random()*2.5});
   }
+  /* شرارات بيضاء لامعة أسرع وأقصر عمرًا */
+  const sp=REDUCED?0:Math.ceil(n/3);
+  for(let i=0;i<sp;i++){
+    const a=Math.random()*Math.PI*2,s=(130+Math.random()*260)*pow;
+    parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.18+Math.random()*.22,t:0,c:"#FFFFFF",r:.8+Math.random()*1.4,spark:true});
+  }
 }
 function pop(x,y,txt,c){pops.push({x,y,txt,c,t:0,life:.9});}
 
 function levelConfig(n){
-  const bossL=n%5===0;
+  const bossL=n%5===0, hard=Math.max(0,Math.min(1,(n-100)/400)); /* تباطؤ النمو بعد المرحلة 100 */
   return{bossL,
-    count:bossL?Math.floor(2+n*.5):Math.min(60,Math.floor(6+n*2.2)),
-    interval:Math.max(.3,1.1-n*.02)};
+    count:bossL?Math.min(70,Math.floor(2+n*.5*(1-hard*.75))):Math.min(60,Math.floor(6+n*2.2)),
+    interval:Math.max(.24,1.1-n*.02)};
 }
+let linesRounds=0; /* عدّاد جولات تطوير "خطوط الطلقات" */
 function startLevel(n){
   level=n;ui.level.textContent=n;
   const nbCols=["drone","boss","gold","player"];
   nebulae.forEach((nb,i)=>nb.c=nbCols[(Math.ceil(n/5)+i)%4]);
   const c=levelConfig(n);
   spawned=0;toSpawn=c.count;spawnT=.8;levelDone=false;
-  /* كل خمس مراحل تعود الطلقات الملتقطة لخط واحد (يبقى تطوير "خطوط الطلقات" الدائم) */
+  /* كل خمس مراحل تعود الطلقات الملتقطة لخط واحد */
   const resetShots=n%5===1;
   if(resetShots)players.forEach(p=>{p.tripleLv=0;p.tripleT=0;});
-  const btxt=c.bossL?"☠ المرحلة "+n+" — الوحش قادم!":"المرحلة "+n+(resetShots?" — "+t("resetNote"):"");
+  /* حد تطوير "خطوط الطلقات": بعد 3 جولات يعود لخط واحد ويجب شراؤه من جديد */
+  let linesNote=false;
+  if(n>1&&(mode!=="net"||netIsHost)){
+    linesRounds++;
+    if(linesRounds>=3){
+      linesRounds=0;linesNote=true;
+      [0,1].forEach(pi=>{if(prof[pi]&&prof[pi].ups)prof[pi].ups.lines=0;});
+      if(mode==="net"){profStore(0);netSend({t:"ev",k:"lreset"});}else saveEco();
+    }
+  }
+  const rn=resetShots?t("resetNote"):null,ln=linesNote?t("linesNote"):null;
+  const notes=rn&&ln?rn+" • "+ln:(rn||ln);
+  const btxt=c.bossL?"☠ المرحلة "+n+" — الوحش قادم!":"المرحلة "+n+(notes?" — "+notes:"");
   banner(btxt);
   if(mode==="net"&&netIsHost)netSend({t:"ev",k:"lvl",n,txt:btxt});
   if(c.bossL)spawnBoss();
@@ -1460,7 +1498,10 @@ function completeLevel(){
 }
 
 function update(dt){
-  if(mode==="net"&&netIsHost){netT+=dt;if(netT>=.04){netT=0;netSend(snap());}}
+  if(mode==="net"&&netIsHost){netT+=dt;
+    /* تطوير "فريمات المزامنة": كل مستوى يزيد اللقطات المرسلة بالثانية */
+    const sInt=Math.max(.007,.02*Math.pow(.93,Math.max(upLv("sync",0),upLv("sync",1))));
+    if(netT>=sInt){netT=0;netSend(snap());}}
   hoverT+=dt;
   if(slowT>0){slowT-=dt;timeScale=.45;}else timeScale=1;
   const dts=dt*timeScale;
@@ -1474,22 +1515,36 @@ function update(dt){
     if(kd(p,"up"))dy-=1;
     if(kd(p,"down"))dy+=1;
     const tz=settings.mobileCtl==="drag"?touchZone(p.pi):null;
-    if(tz){
-      const rect=cv.getBoundingClientRect();
-      const tx=tz.x-rect.left-p.x, ty=tz.y-rect.top-(p.y+70);
-      dx=Math.abs(tx)>6?Math.sign(tx):0;
-      dy=Math.abs(ty)>6?Math.sign(ty):0;
-    }
+    const ni=(mode==="net"&&p.pi===1)?p.netIn:null;
     const mv=(380+28*upLv("spd",p.pi))*shipOf(p.pi).spd;
-    p.vx+=(dx*mv-p.vx)*12*dt;
-    p.vy+=(dy*mv-p.vy)*12*dt;
-    p.x=Math.max(20,Math.min(W()-20,p.x+p.vx*dt));
-    p.y=Math.max(60,Math.min(H()-30,p.y+p.vy*dt));
-    p.tilt+=(Math.max(-1,Math.min(1,p.vx/380))*.35-p.tilt)*10*dt;
+    if(mode==="net"&&ni&&ni.ax!=null){
+      /* لاعب الهاتف: الطائرة تحت إصبعه مباشرة (نفس سرعة الإصبع) */
+      const tx=Math.max(20,Math.min(W()-20,ni.ax/1000*W()));
+      const ty=Math.max(60,Math.min(H()-30,ni.ay/1000*H()));
+      p.tilt+=(Math.max(-1,Math.min(1,(tx-p.x)/700))*.35-p.tilt)*10*dt;
+      p.x=tx;p.y=ty;p.vx=0;p.vy=0;
+    }else if(tz){
+      const rect=cv.getBoundingClientRect();
+      /* لمس مباشر: الطائرة تتبع الإصبع بنفس سرعته تمامًا */
+      const ox=p.x;
+      p.x=Math.max(20,Math.min(W()-20,tz.x-rect.left));
+      p.y=Math.max(60,Math.min(H()-30,tz.y-rect.top));
+      p.vx=Math.max(-900,Math.min(900,(p.x-ox)/Math.max(dt,1e-4)));p.vy=0;
+      p.tilt+=(Math.max(-1,Math.min(1,p.vx/380))*.35-p.tilt)*10*dt;
+    }else{
+      p.vx+=(dx*mv-p.vx)*12*dt;
+      p.vy+=(dy*mv-p.vy)*12*dt;
+      p.x=Math.max(20,Math.min(W()-20,p.x+p.vx*dt));
+      p.y=Math.max(60,Math.min(H()-30,p.y+p.vy*dt));
+      p.tilt+=(Math.max(-1,Math.min(1,p.vx/380))*.35-p.tilt)*10*dt;
+    }
 
-    if(!REDUCED&&Math.random()<.6)
+    if(!REDUCED&&Math.random()<.85)
       parts.push({x:p.x-p.tilt*20+(Math.random()-.5)*8,y:p.y+16,vx:(Math.random()-.5)*20,
         vy:120+Math.random()*60,life:.3+Math.random()*.25,t:0,c:p.col,r:1+Math.random()*1.5});
+    if(!REDUCED&&Math.abs(p.vx)>260&&Math.random()<.55)
+      parts.push({x:p.x-p.tilt*22,y:p.y+14,vx:-p.vx*.15+(Math.random()-.5)*30,
+        vy:100+Math.random()*80,life:.3+Math.random()*.15,t:0,c:"#FFD27A",r:1.5+Math.random()*2,spark:true});
 
     p.fireT-=dt;
     if((kd(p,"fire")||tz)&&p.fireT<=0){fire(p);p.fireT=fireGap(p);}
@@ -1717,8 +1772,17 @@ function draw(){
   }
 
   for(const pt of parts){
-    ctx.fillStyle=pt.c;ctx.globalAlpha=1-pt.t/pt.life;
+    const al=1-pt.t/pt.life;
+    if(pt.ring){
+      const rr=pt.r+(pt.r2-pt.r)*(pt.t/pt.life);
+      ctx.globalAlpha=al*.85;ctx.strokeStyle=pt.c;ctx.lineWidth=3.2*al+.4;
+      ctx.beginPath();ctx.arc(pt.x,pt.y,rr,0,7);ctx.stroke();
+      continue;
+    }
+    if(pt.spark)ctx.globalCompositeOperation="lighter";
+    ctx.fillStyle=pt.c;ctx.globalAlpha=al;
     ctx.beginPath();ctx.arc(pt.x,pt.y,pt.r,0,7);ctx.fill();
+    if(pt.spark)ctx.globalCompositeOperation="source-over";
   }
   ctx.globalAlpha=1;
 
@@ -1784,6 +1848,7 @@ function startGame(n,m){
   if(m)mode=m;
   audioInit();
   clearEntities();
+  linesRounds=0;
   state="playing";
   players=mode==="duo"?[newPlayer(0,1),newPlayer(1,2)]
     :mode==="net"?[newPlayer(0,0),newPlayer(1,0)]:[newPlayer(0,0)];
@@ -1848,7 +1913,7 @@ for(let i=0;i<100;i++){
 const UP_DEFS=[
   {k:"dmg",   name:"قوة التدمير",   desc:"+25% ضرر للرصاصة بكل مستوى", base:25},
   {k:"rate",  name:"سرعة الإطلاق",  desc:"إطلاق أسرع بـ 4% بكل مستوى", base:30},
-  {k:"lines", name:"خطوط الطلقات",  desc:"+خطّان إضافيان من الطلقات بكل مستوى", base:80},
+  {k:"lines", name:"خطوط الطلقات",  desc:"+خطّان إضافيان من الطلقات بكل مستوى — ينتهي بعد 3 جولات وتعود لخط واحد", base:80},
   {k:"spd",   name:"سرعة الحركة",   desc:"مركبة أسرع بكل مستوى", base:30},
   {k:"life",  name:"دروع إضافية",   desc:"+1 درع (قلب) بكل مستوى", base:60},
   {k:"coin",  name:"جاذب الذهب",    desc:"+15% ذهب من كل التقاط بكل مستوى", base:35},
@@ -1856,7 +1921,8 @@ const UP_DEFS=[
   {k:"slow",  name:"إبطاء الزمن",   desc:"+1 ثانية على مفعول الإبطاء", base:35},
   {k:"drop",  name:"حظ التطويرات",  desc:"فرصة أكبر لسقوط التطويرات", base:45},
   {k:"bspeed",name:"سرعة الرصاص",   desc:"رصاص أسرع بكل مستوى", base:25},
-  {k:"gold",  name:"كنوز السماء",   desc:"+15 ذهب إضافي بنهاية كل مرحلة", base:50}
+  {k:"gold",  name:"كنوز السماء",   desc:"+15 ذهب إضافي بنهاية كل مرحلة", base:50},
+  {k:"sync",  name:"فريمات المزامنة", desc:"مزامنة أسرع في اللعب على جهازين — فريمات إرسال أكثر كل مستوى", base:120}
 ];
 const MAXTIER=10;
 function upPrice(def,t){return Math.round(def.base*Math.pow(1.6,t+1));}
@@ -1934,11 +2000,13 @@ function renderShop(){
       else{
         const pr=upPrice(def,t);
         btn.textContent="🪙 "+pr;btn.disabled=P.coins<pr;
-        btn.onclick=()=>{if(P.coins>=pr){P.coins-=pr;P.ups[def.k]=t+1;saveEco();updateCoinsLbl();renderShop();SFX.pick();}};
+        btn.onclick=()=>{if(P.coins>=pr){P.coins-=pr;P.ups[def.k]=t+1;saveEco();updateCoinsLbl();renderShop();SFX.pick();
+        if(def.k==="lines"){linesRounds=0;if(mode==="net")netSend({t:"ev",k:"lbuy"});}
+        if(mode==="net"&&!netIsHost)netSend({t:"ups",ups:P.ups});}};
       }
       row.appendChild(btn);list.appendChild(row);
     });
-    $("shopNote").textContent="لاعب "+(shopPi+1)+": 110 تطويرات: 11 فئة × 10 مستويات — اجمع الذهب 🪙 من اللعب";
+    $("shopNote").textContent="لاعب "+(shopPi+1)+": 120 تطويرات: 12 فئة × 10 مستويات — اجمع الذهب 🪙 من اللعب";
   }else{
     SHIPS.forEach((s,i)=>{
       const row=document.createElement("div");row.className="shopItem"+(i===P.shipSel?" selShip":"");
@@ -1992,15 +2060,15 @@ $("tabP1").onclick=()=>{shopPi=0;renderShop();};
 $("soloBtn").onmouseenter=()=>{$("keysSolo").classList.remove("hidden");$("keysDuo").classList.add("hidden");};
 $("duoBtn").onmouseenter=()=>{$("keysDuo").classList.remove("hidden");$("keysSolo").classList.add("hidden");};
 $("tabP2").onclick=()=>{shopPi=1;renderShop();};
-$("levelsBtn").onclick=()=>{buildGrid();show(ui.levels);};
+$("levelsBtn").onclick=()=>{lvlPage=pageOf(unlocked);buildGrid();show(ui.levels);};
 $("settingsBtn").onclick=()=>show(ui.set);
 $("backMenu1").onclick=()=>show(ui.menu);
 $("backMenu2").onclick=()=>show(ui.menu);
 $("resumeBtn").onclick=()=>togglePause();
 $("quitBtn").onclick=()=>{if(mode==="net"){netSend({t:"ev",k:"bye"});netCleanup("خرجت من اللعب الجماعي");return;}clearEntities();state="menu";show(ui.menu);};
 $("nextBtn").onclick=()=>startGame(level+1);
-$("mapBtn").onclick=()=>{buildGrid();show(ui.levels);};
-$("mapBtn2").onclick=()=>{buildGrid();show(ui.levels);};
+$("mapBtn").onclick=()=>{lvlPage=pageOf(unlocked);buildGrid();show(ui.levels);};
+$("mapBtn2").onclick=()=>{lvlPage=pageOf(unlocked);buildGrid();show(ui.levels);};
 $("againBtn").onclick=()=>startGame(level);
 $("retryBtn").onclick=()=>startGame(level);
 $("menuBtn").onclick=()=>{if(mode==="net"){netSend({t:"ev",k:"bye"});netCleanup("خرجت من اللعب الجماعي");return;}clearEntities();state="menu";show(ui.menu);};
@@ -2054,16 +2122,19 @@ function netCleanup(msg){
   if(msg)netStatus(msg);
 }
 function snap(){
+  /* تطبيع الإحداثيات إلى عالم افتراضي 1000×1000 حتى يرى كل جهاز كامل
+     ساحة اللعب مهما اختلف حجم شاشته (لابتوب كبير / هاتف صغير) */
+  const sw=1000/W(),sy=1000/H(),nx=v=>Math.round(v*sw),ny=v=>Math.round(v*sy);
   return{t:"st",st:state,lv:level,sh:Math.round(shake*10)/10,fl:Math.round(flash*100)/100,
-    pl:players.map(p=>[Math.round(p.x),Math.round(p.y),p.lives,p.score,p.alive?1:0,p.tripleLv,
+    pl:players.map(p=>[nx(p.x),ny(p.y),p.lives,p.score,p.alive?1:0,p.tripleLv,
       Math.round(p.inv*10)/10,p.shieldOn?1:0,p.combo]),
-    bl:bullets.map(b=>[Math.round(b.x),Math.round(b.y),b.own&&b.own.pi===1?1:0]),
-    eb:ebullets.map(b=>[Math.round(b.x),Math.round(b.y)]),
-    rk:rocks.map(r=>[r.s,Math.round(r.x),Math.round(r.y),Math.round(r.r*10)/10]),
-    dr:drones.map(d=>[Math.round(d.x),Math.round(d.y),Math.round(d.t*10)/10]),
-    pk:pickups.map(k=>[Math.round(k.x),Math.round(k.y),k.type]),
-    ps:pops.map(q=>[Math.round(q.x),Math.round(q.y),q.txt,q.c,Math.round(q.t*100)/100]),
-    bs:boss?[Math.round(boss.x),Math.round(boss.y),Math.round(boss.r),boss.kind,
+    bl:bullets.map(b=>[nx(b.x),ny(b.y),b.own&&b.own.pi===1?1:0]),
+    eb:ebullets.map(b=>[nx(b.x),ny(b.y)]),
+    rk:rocks.map(r=>[r.s,nx(r.x),ny(r.y),Math.round(r.r*sw*10)/10]),
+    dr:drones.map(d=>[nx(d.x),ny(d.y),Math.round(d.t*10)/10]),
+    pk:pickups.map(k=>[nx(k.x),ny(k.y),k.type]),
+    ps:pops.map(q=>[nx(q.x),ny(q.y),q.txt,q.c,Math.round(q.t*100)/100]),
+    bs:boss?[nx(boss.x),ny(boss.y),Math.round(boss.r*sw),boss.kind,
       Math.round(boss.t*100)/100,Math.round(boss.hp),boss.maxHp,boss.tier]:0};
 }
 function applySnap(m){
@@ -2071,9 +2142,14 @@ function applySnap(m){
   if(m.st==="playing"&&state!=="playing"){state="playing";show(null);}
   if(m.st==="paused"&&state!=="paused"&&state!=="over"&&state!=="done"){state="paused";show(ui.pause);}
   if(players.length<2){players=[newPlayer(0,0),newPlayer(1,0)];}
+  /* إرجاع الإحداثيات إلى حجم شاشة هذا الجهاز */
+  const gxn=v=>v*W()/1000,gyn=v=>v*H()/1000;
   m.pl.forEach((a,i)=>{const p=players[i];if(!p)return;
-    p.tilt=Math.max(-.6,Math.min(.6,(a[0]-p.x)*.06));
-    p.x=a[0];p.y=a[1];p.lives=a[2];p.score=a[3];p.alive=!!a[4];p.tripleLv=a[5];
+    p.tilt=Math.max(-.6,Math.min(.6,(a[0]-(p._nx==null?a[0]:p._nx))*.06));
+    p._nx=a[0];
+    if(p.tx==null){p.x=gxn(a[0]);p.y=gyn(a[1]);}
+    p.tx=gxn(a[0]);p.ty=gyn(a[1]);
+    p.lives=a[2];p.score=a[3];p.alive=!!a[4];p.tripleLv=a[5];
     p.inv=a[6];p.shieldOn=!!a[7];p.combo=a[8];p.pi=i;p.ci=0;p.col=PL_COLORS[i];});
   const pl=players[netLocal];
   if(pl&&prevLives!=null&&pl.lives<prevLives){SFX.hit();flash=.5;}
@@ -2089,17 +2165,18 @@ function applySnap(m){
   prevRocks=m.rk.length;
   if(m.dr.length<prevDrones)SFX.boom();
   prevDrones=m.dr.length;
-  bullets=m.bl.map(b=>({x:b[0],y:b[1],mine:b[2]}));
-  ebullets=m.eb.map(b=>({x:b[0],y:b[1]}));
+  bullets=m.bl.map(b=>({x:gxn(b[0]),y:gyn(b[1]),mine:b[2]}));
+  ebullets=m.eb.map(b=>({x:gxn(b[0]),y:gyn(b[1])}));
   const nc={};
-  rocks=m.rk.map(a=>{let r=nc[a[0]];if(!r){r=rockCache[a[0]]||makeRock(0,0,a[3],0,0,a[0]);r.vr*=.6;}
-    r.x=a[1];r.y=a[2];r.r=a[3];r.rot+=r.vr*.05;nc[a[0]]=r;return r;});
+  rocks=m.rk.map(a=>{const rr=a[3]*W()/1000;let r=nc[a[0]];
+    if(!r){r=rockCache[a[0]]||makeRock(0,0,rr,0,0,a[0]);r.vr*=.6;}
+    r.x=gxn(a[1]);r.y=gyn(a[2]);r.r=rr;r.rot+=r.vr*.05;nc[a[0]]=r;return r;});
   rockCache=nc;
-  drones=m.dr.map(a=>({x:a[0],y:a[1],t:a[2]}));
+  drones=m.dr.map(a=>({x:gxn(a[0]),y:gyn(a[1]),t:a[2]}));
   const PCOL={T:COL.gold,S:COL.player,W:COL.drone,d:COL.gold};
-  pickups=m.pk.map(a=>({x:a[0],y:a[1],type:a[2],c:PCOL[a[2]]||COL.gold,txt:"",t:0}));
-  pops=m.ps.map(a=>({x:a[0],y:a[1],txt:a[2],c:a[3],t:a[4],life:.9}));
-  boss=m.bs?{x:m.bs[0],y:m.bs[1],r:m.bs[2],kind:m.bs[3],t:m.bs[4],hp:m.bs[5],maxHp:m.bs[6],
+  pickups=m.pk.map(a=>({x:gxn(a[0]),y:gyn(a[1]),type:a[2],c:PCOL[a[2]]||COL.gold,txt:"",t:0}));
+  pops=m.ps.map(a=>({x:gxn(a[0]),y:gyn(a[1]),txt:a[2],c:a[3],t:a[4],life:.9}));
+  boss=m.bs?{x:gxn(m.bs[0]),y:gyn(m.bs[1]),r:m.bs[2]*W()/1000,kind:m.bs[3],t:m.bs[4],hp:m.bs[5],maxHp:m.bs[6],
     tier:m.bs[7],name:BOSS_NAMES[(m.bs[7]-1)%BOSS_NAMES.length]}:null;
   /* HUD */
   if(players[0])ui.score.textContent=players[0].score;
@@ -2118,8 +2195,13 @@ function netFrame(dt){
   if(shake>0)shake=Math.max(0,shake-40*dt);
   if(flash>0)flash=Math.max(0,flash-dt*2);
   for(const p of players)if(p&&p.inv>0)p.inv-=dt;
+  /* تنعيم حركة اللاعبين بين اللقطات الواردة */
+  for(const p of players)if(p&&p.tx!=null){
+    const k=Math.min(1,dt*22);
+    p.x+=(p.tx-p.x)*k;p.y+=(p.ty-p.y)*k;
+  }
   netInT+=dt;
-  if(netInT>=.033&&players[1]){
+  if(netInT>=.02&&players[1]){
     netInT=0;
     let dx=0,dy=0,tzFire=false;
     const kk=a=>CTRL[0][a].some(k=>keys[k])||!!VK[0][a]||!!VK[1][a];
@@ -2128,11 +2210,19 @@ function netFrame(dt){
     if(kk("up"))dy-=1;
     if(kk("down"))dy+=1;
     const tz=settings.mobileCtl!=="arrows"?touchZone(0):null;
+    let ax=null,ay=null;
     if(tz){const rect=cv.getBoundingClientRect();
-      const tx=tz.x-rect.left-players[1].x,ty=tz.y-rect.top-(players[1].y+70);
-      dx=Math.abs(tx)>6?Math.sign(tx):0;dy=Math.abs(ty)>6?Math.sign(ty):0;tzFire=true;}
+      tzFire=true;
+      if(settings.mobileCtl==="drag"){
+        /* لمس مباشر: نرسل موقع الإصبع كنسبة من الشاشة */
+        ax=Math.round((tz.x-rect.left)/rect.width*1000);
+        ay=Math.round((tz.y-rect.top)/rect.height*1000);
+      }else{
+        const tx=tz.x-rect.left-players[1].x,ty=tz.y-rect.top-(players[1].y+70);
+        dx=Math.abs(tx)>6?Math.sign(tx):0;dy=Math.abs(ty)>6?Math.sign(ty):0;
+      }}
     const f=(kk("fire")||tzFire)?1:0;
-    netSend({t:"i",l:dx<0?1:0,r:dx>0?1:0,u:dy<0?1:0,d:dy>0?1:0,f});
+    netSend({t:"i",l:dx<0?1:0,r:dx>0?1:0,u:dy<0?1:0,d:dy>0?1:0,f,ax,ay});
   }
 }
 function onNetData(m){
@@ -2150,6 +2240,8 @@ function onNetData(m){
       if(m.sc>hiScore){hiScore=m.sc;store("space-hi",hiScore);}
       ui.final.textContent="النقاط: "+m.sc;ui.hi.textContent=hiScore;show(ui.over);}
     else if(m.k==="coins"){prof[0].coins+=m.n|0;profStore(0);updateCoinsLbl();}
+    else if(m.k==="lreset"&&!netIsHost){[0,1].forEach(pi=>{if(prof[pi]&&prof[pi].ups)prof[pi].ups.lines=0;});profStore(0);}
+    else if(m.k==="lbuy"&&netIsHost)linesRounds=0;
     else if(m.k==="pause"){state="paused";show(ui.pause);}
     else if(m.k==="res"){state="playing";show(null);}
     else if(m.k==="bye")netCleanup("خرج اللاعب الآخر — عدت للقائمة");
@@ -2160,8 +2252,9 @@ function onNetData(m){
     startGame(unlocked,"net");
     return;
   }
+  if(m.t==="ups"&&netIsHost&&players[1]){prof[1].ups=m.ups||{};return;}
   if(m.t==="i"&&netIsHost&&players[1])
-    players[1].netIn={left:m.l,right:m.r,up:m.u,down:m.d,fire:m.f};
+    players[1].netIn={left:m.l,right:m.r,up:m.u,down:m.d,fire:m.f,ax:m.ax,ay:m.ay};
   if(m.t==="pau"&&netIsHost&&state==="playing")togglePause();
   if(m.t==="res"&&netIsHost&&state==="paused")togglePause();
 }
