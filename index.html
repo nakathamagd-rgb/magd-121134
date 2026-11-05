@@ -507,16 +507,28 @@ function noiseS(dur,vol){
   f.type="lowpass";f.frequency.value=900;g.gain.value=vol;
   s.buffer=buf;s.connect(f);f.connect(g);g.connect(sfxGain);s.start();
 }
+/* ===== مؤثرات صوتية حماسية متعددة الطبقات — طابع صوتي مختلف لكل مرحلة ===== */
+const SHOOT_PROFILES=[ /* [نوع الموجة، تردد البداية، تردد النهاية] — يتغير مع كل مرحلة */
+  ["square",880,220],["sawtooth",660,180],["triangle",990,330],
+  ["square",700,120],["sawtooth",1150,420],["triangle",560,150],
+  ["sawtooth",820,260],["square",1050,360],["triangle",760,190],
+  ["square",620,160],["sawtooth",940,300],["triangle",880,240]
+];
 const SFX={
-  shoot:()=>tone(760,240,.09,"square",.11),
-  boom:()=>{noiseS(.3,.25);tone(140,40,.25,"sawtooth",.2);},
-  bigBoom:()=>{noiseS(.6,.4);tone(90,30,.5,"sawtooth",.3);},
-  hit:()=>tone(200,80,.12,"sawtooth",.18),
-  pick:()=>{tone(660,660,.07,"sine",.18);tone(990,990,.1,"sine",.18,.07);},
-  power:()=>{tone(440,880,.15,"triangle",.2);tone(660,1320,.2,"triangle",.15,.1);},
-  win:()=>{tone(523,523,.12,"triangle",.2);tone(659,659,.12,"triangle",.2,.12);tone(784,784,.25,"triangle",.22,.24);},
-  lose:()=>tone(300,60,.7,"sawtooth",.3),
-  roar:()=>{tone(80,45,.8,"sawtooth",.35);noiseS(.7,.3);}
+  shoot:()=>{
+    const pr=SHOOT_PROFILES[(level-1)%SHOOT_PROFILES.length];
+    tone(pr[1],pr[2],.09,pr[0],.10);
+    tone(pr[1]*2,Math.max(pr[2]*2,1),.05,"sine",.05,.004);
+    noiseS(.03,.045);
+  },
+  boom:()=>{noiseS(.34,.26);tone(170,42,.3,"sawtooth",.22);tone(64,28,.42,"sine",.28,.01);},
+  bigBoom:()=>{noiseS(.65,.4);noiseS(.4,.25);tone(110,26,.55,"sawtooth",.3);tone(52,20,.7,"sine",.32,.03);tone(880,120,.3,"square",.06);},
+  hit:()=>{tone(340,190,.06,"square",.1);tone(1300,640,.045,"sine",.06,.005);},
+  pick:()=>{tone(660,660,.07,"sine",.16);tone(880,880,.07,"sine",.16,.06);tone(1174,1174,.11,"sine",.16,.12);},
+  power:()=>{tone(440,880,.13,"triangle",.18);tone(554,1108,.13,"triangle",.16,.08);tone(660,1320,.2,"triangle",.16,.16);tone(1760,1760,.1,"sine",.07,.24);},
+  win:()=>{tone(523,523,.11,"triangle",.2);tone(659,659,.11,"triangle",.2,.11);tone(784,784,.11,"triangle",.2,.22);tone(1046,1046,.3,"triangle",.22,.33);},
+  lose:()=>{tone(392,392,.2,"sawtooth",.2);tone(311,311,.2,"sawtooth",.2,.2);tone(233,58,.75,"sawtooth",.26,.4);},
+  roar:()=>{tone(90,42,.8,"sawtooth",.33);tone(140,60,.7,"square",.14,.05);noiseS(.75,.3);}
 };
 
 let hiScore=0, unlocked=1, cleared={};
@@ -611,7 +623,7 @@ solo:"لعب فردي 👤",duo:"لاعبان 👥",levels:"🚀 المراحل"
 k1:"<b>الأسهم</b> أو <b>WASD</b> حركة بكل الاتجاهات",k2:"<b>مسافة</b> أو <b>V</b> إطلاق",k3:"<b>P</b> إيقاف",k4:"جوال: اسحب في المربع السفلي لطائرتك، أو فعّل أزرار الأسهم من الإعدادات",
 lvT1:"اختر",lvT2:"المرحلة",back:"رجوع",stT1:"الـ",stT2:"إعدادات",shT1:"الـ",shT2:"متجر",paT1:"إيقاف",paT2:"مؤقت",
 lblLang:"اللغة",lblVolShot:"صوت الطلقات 🔫",lblVolMusic:"صوت النغمة 🎵",lblThemes:"ألوان اللعبة",lblSound:"الأصوات",lblMusic:"الموسيقى",lblShake:"اهتزاز الشاشة",
-lblMobile:"تحكم الهاتف: سحب / أسهم",lblRename:"✏️ اسم الطائرة",resetNote:"الطلقات عادت لخط واحد!",linesNote:"انتهت جولات «خطوط الطلقات» — عدت لخط واحد، اشترِه من جديد!",
+lblMobile:"تحكم الهاتف: سحب / أسهم",lblRename:"✏️ اسم الطائرة",resetNote:"الطلقات عادت لخط واحد!",linesNote:"كل 10 مراحل تعود خطوط الطلقات إلى الصفر — اشترِها من جديد!",
 tabP1:"اللاعب 1",tabP2:"اللاعب 2",tabUps:"⚡ التطويرات",tabShips:"🚀 الطائرات",
 resume:"كمل",menu:"القائمة",menu2:"القائمة",doneT:"أحسنت!",next:"المرحلة التالية ►",levels2:"المراحل",levels3:"المراحل",again:"إعادة",
 overT:"انتهت اللعبة",retry:"إعادة المرحلة",lblScore:"النقاط",lblGold:"🪙 الذهب",lblLevel:"المرحلة",lblLives:"الدرع",lblBest:"الأفضل",
@@ -682,7 +694,7 @@ const ui={score:$("score"),score2:$("score2"),hi:$("hiscore"),level:$("levelLbl"
 let state="menu";
 let mode="solo", players=[];
 let level=1;
-let shake=0,flash=0,timeScale=1,slowT=0;
+let shake=0,timeScale=1,slowT=0;
 let spawned=0,toSpawn=0,spawnT=0,levelDone=false,shootersLeft=0,chargersLeft=0,attackT=4;
 let bullets=[],rocks=[],drones=[],ebullets=[],pickups=[],parts=[],pops=[],stars=[],shoots=[],nebulae=[];
 let boss=null,tPrev=0,hoverT=0;
@@ -821,7 +833,9 @@ $("pgLbl").title="العودة إلى صفحة مرحلتك الحالية";
 function drawShip(p,moving,inv){
   const x=p.x, y=p.y+(REDUCED?0:Math.sin(hoverT*3)*2);
   const ship=shipOf(p.pi);
-  const base=p.col||ship.col||COL.player;
+  /* كل 10 مراحل تتطور الطائرة: لون جديد بالكامل وشكل بدن جديد */
+  const tier=Math.floor((level-1)/10);
+  const base=colorRotate(p.col||ship.col||COL.player,tier*29);
   const lv=gunPairs(p);
   const up=lv>0;
   const tilt=p.tilt;
@@ -875,7 +889,7 @@ function drawShip(p,moving,inv){
   g.addColorStop(1,colorShade(base,-70));
   ctx.fillStyle=g;
   ctx.beginPath();
-  const bodyPts=(ship.pts||SHIP_PTS[0]);
+  const bodyPts=SHIP_PTS[(ship.shape+tier)%SHIP_PTS.length]||ship.pts||SHIP_PTS[0];
   bodyPts.forEach((pt,idx)=>idx?ctx.lineTo(pt[0],pt[1]):ctx.moveTo(pt[0],pt[1]));
   ctx.closePath();ctx.fill();
   ctx.strokeStyle="rgba(0,0,0,.55)";ctx.lineWidth=1.6;ctx.lineJoin="round";ctx.stroke();
@@ -949,29 +963,66 @@ function colorShade(hex,amt){
   r=Math.max(0,Math.min(255,r));g=Math.max(0,Math.min(255,g));b=Math.max(0,Math.min(255,b));
   return "#"+((r<<16)|(g<<8)|b).toString(16).padStart(6,"0");
 }
+/* تدوير صبغة لون (hex) بدرجات محددة — يُستخدم لتغيير هوية الطائرة والوحش كل 10 مراحل */
+function colorRotate(hex,deg){
+  if(!hex||hex[0]!=="#")return hex;
+  const n=parseInt(hex.slice(1,7),16);
+  const r=(n>>16&255)/255,g=(n>>8&255)/255,b=(n&255)/255;
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn,l=(mx+mn)/2;
+  let h=0,s=d?d/(1-Math.abs(2*l-1)):0;
+  if(d){if(mx===r)h=((g-b)/d+(g<b?6:0))*60;else if(mx===g)h=((b-r)/d+2)*60;else h=((r-g)/d+4)*60;}
+  h=((h+deg)%360+360)%360;
+  const c=(1-Math.abs(2*l-1))*s,x=c*(1-Math.abs((h/60)%2-1)),m=l-c/2;
+  let r2,g2,b2;
+  if(h<60){r2=c;g2=x;b2=0;}else if(h<120){r2=x;g2=c;b2=0;}else if(h<180){r2=0;g2=c;b2=x;}
+  else if(h<240){r2=0;g2=x;b2=c;}else if(h<300){r2=x;g2=0;b2=c;}else{r2=c;g2=0;b2=x;}
+  const f=v=>Math.round((v+m)*255).toString(16).padStart(2,"0");
+  return "#"+f(r2)+f(g2)+f(b2);
+}
 
-/* ===== أطياف الأعداء: الشكل واللون يتغيران كل مرحلتين ===== */
-const ENEMY_SKINS=[
-  {rock:["#8FA6C4","#51678C","#232F4C","#141E36"], drone:"#9D8CFF", spike:1},
-  {rock:["#C9A98F","#8C6751","#4A2F1E","#241610"], drone:"#FFB05C", spike:1.5},
-  {rock:["#9FD4C4","#4E8C7A","#1E4A3E","#0F241E"], drone:"#6EE7D8", spike:.75},
-  {rock:["#D4A0C4","#8C4E74","#4A1E3E","#24101E"], drone:"#FF5D9E", spike:1.7},
-  {rock:["#CFC48F","#8C8451","#4A471E","#242310"], drone:"#D4E05C", spike:1.1},
-  {rock:["#8F9ED4","#51668C","#232C4C","#141836"], drone:"#74A8FF", spike:1.35}
-];
-function skinOf(){return ENEMY_SKINS[Math.floor((level-1)/2)%ENEMY_SKINS.length];}
+/* ===== أطياف الأعداء: لكل مرحلة طيف لوني وشكل فريدان لا يشبهان أي مرحلة أخرى ===== */
+const skinCache={};
+function skinOf(){
+  if(skinCache[level])return skinCache[level];
+  const H1=(level*137)%360;                 /* قفزة لون كبيرة بين كل مرحلتين */
+  const S=56+((level*31)%22), L1=50+((level*17)%14);
+  const H2=(H1+150+(level*67)%70)%360;      /* لون الدرون يبعد كثيرًا عن لون الصخور */
+  const skin={
+    rock:[
+      `hsl(${H1} ${S}% ${Math.min(L1+24,86)}%)`,
+      `hsl(${H1} ${S}% ${L1}%)`,
+      `hsl(${(H1+16)%360} ${S}% ${Math.max(L1-28,12)}%)`,
+      `hsl(${(H1+30)%360} ${Math.min(S+8,90)}% ${Math.min(L1+38,90)}%)`
+    ],
+    drone:`hsl(${H2} ${Math.min(S+6,90)}% ${L1+8}%)`,
+    spike:.65+((level*13)%12)/12*1.15,      /* شوك الصخور يتغير مع كل مرحلة */
+    droneShape:level%6                      /* هيكل الدرون يتغير مع كل مرحلة */
+  };
+  skinCache[level]=skin;
+  return skin;
+}
+/* قوة الوحوش: تتزايد بثبات — المراحل الخمس الأولى سهلة ثم تتقوى كل مرحلة */
+function smallHp(){return Math.max(1,1+Math.floor((level-1)/5));}
+function droneHp(){return 3+Math.floor(Math.max(0,level-5)/2);}
+/* أنماط حركة الصخور: تتبدل مجموعاتها مع كل مرحلة فتتغير طريقة الهجوم */
+const ROCK_PATS=[["drift"],["drift","sine"],["sine","zig"],["zig","fast"],["fast","sine","drift"],["zig","fast"]];
+/* أنماط إطلاق الدرون تتغير مع كل مرحلة */
+const DRONE_PATS=["aimed","spread","burst","fast"];
 
 /* ===== الصخور البلورية ===== */
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);
   t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
-function makeRock(x,y,r,vx,vy,seed){
+function makeRock(x,y,r,vx,vy,seed,hpOpt){
   seed=seed==null?(Math.random()*1e9|0):seed;
   const R=mulberry32(seed),skin=skinOf(),pts=[],n=8+Math.floor(R()*4);
   for(let i=0;i<n;i++){const a=i/n*Math.PI*2,rr=r*(.72+R()*.35*skin.spike);
     pts.push([Math.cos(a)*rr,Math.sin(a)*rr]);}
   const facets=[];
   for(let i=0;i<3;i++)facets.push([R()*r*1.2-r*.6,R()*r*1.2-r*.6]);
-  return{x,y,r,vx,vy,rot:R()*7,vr:(R()-.5)*2,pts,facets,hp:r>34?4:r>22?2:1,s:seed};
+  const pats=ROCK_PATS[(level-1)%ROCK_PATS.length];
+  return{x,y,r,vx,vy,rot:R()*7,vr:(R()-.5)*2,pts,facets,
+    hp:hpOpt!=null?hpOpt:(r>34?4:r>22?2:1),
+    pat:pats[Math.floor(R()*pats.length)],ph:R()*7,hf:0,s:seed};
 }
 function drawRock(r){
   const skin=skinOf();
@@ -982,6 +1033,7 @@ function drawRock(r){
   ctx.beginPath();
   r.pts.forEach((pt,idx)=>idx?ctx.lineTo(pt[0],pt[1]):ctx.moveTo(pt[0],pt[1]));
   ctx.closePath();ctx.fill();
+  if(r.hf>0){ctx.fillStyle="rgba(255,255,255,"+Math.min(.85,r.hf*9).toFixed(2)+")";ctx.fill();}
   ctx.strokeStyle=skin.rock[3];ctx.lineWidth=2;ctx.stroke();
   ctx.strokeStyle="rgba(255,255,255,.16)";ctx.lineWidth=1;
   for(const f of r.facets){
@@ -992,8 +1044,9 @@ function drawRock(r){
 
 /* ===== الدرونات ===== */
 function spawnDrone(){
-  drones.push({x:60+Math.random()*(W()-120),y:-30,t:0,hp:3+Math.floor(level/3),
-    fireT:1+Math.random()*1.5,r:16,drift:(Math.random()-.5)*60});
+  drones.push({x:60+Math.random()*(W()-120),y:-30,t:0,hp:droneHp(),
+    pat:DRONE_PATS[(level-1)%DRONE_PATS.length],
+    fireT:1+Math.random()*1.5,r:16,drift:(Math.random()-.5)*60,hf:0});
 }
 function drawDrone(d){
   ctx.save();ctx.translate(d.x,d.y);
@@ -1008,15 +1061,26 @@ function drawDrone(d){
   let g=ctx.createLinearGradient(0,-10,0,14);
   g.addColorStop(0,colorShade(dc,50));g.addColorStop(1,colorShade(dc,-60));
   ctx.fillStyle=g;
-  if(skin.spike>1.2){
-    ctx.beginPath();ctx.moveTo(0,-14);ctx.lineTo(10,2);ctx.lineTo(0,14);ctx.lineTo(-10,2);ctx.closePath();
-  }else{
-    ctx.beginPath();ctx.moveTo(0,14);ctx.lineTo(-11,-8);ctx.lineTo(0,-3);ctx.lineTo(11,-8);ctx.closePath();
-  }
-  ctx.fill();
+  /* هيكل سداسي مختلف تمامًا — شكل الدرون يتغير مع كل مرحلة */
+  const shp=skin.droneShape;
+  ctx.beginPath();
+  if(shp===0){ctx.moveTo(0,-14);ctx.lineTo(10,2);ctx.lineTo(0,14);ctx.lineTo(-10,2);}
+  else if(shp===1){ctx.moveTo(0,14);ctx.lineTo(-11,-8);ctx.lineTo(0,-3);ctx.lineTo(11,-8);}
+  else if(shp===2){ctx.moveTo(0,-13);ctx.lineTo(9,-4);ctx.lineTo(9,6);ctx.lineTo(0,13);ctx.lineTo(-9,6);ctx.lineTo(-9,-4);}
+  else if(shp===3){ctx.rect(-7,-10,14,20);}
+  else if(shp===4){ctx.moveTo(0,-13);ctx.lineTo(11,0);ctx.lineTo(0,13);ctx.lineTo(-11,0);}
+  else{ctx.moveTo(-6,-12);ctx.lineTo(6,-12);ctx.lineTo(11,0);ctx.lineTo(6,12);ctx.lineTo(-6,12);ctx.lineTo(-11,0);}
+  ctx.closePath();ctx.fill();
+  if(d.hf>0){ctx.fillStyle="rgba(255,255,255,"+Math.min(.85,d.hf*9).toFixed(2)+")";ctx.fill();}
   ctx.strokeStyle="#fff";ctx.lineWidth=1.4;ctx.stroke();
   ctx.fillStyle="#fff";
-  ctx.beginPath();ctx.arc(0,skin.spike>1.2?0:-4,2.4,0,7);ctx.fill();
+  ctx.beginPath();ctx.arc(0,shp===1?-4:0,2.4,0,7);ctx.fill();
+  /* شريط دم صغير يظهر عند تضرر الدرون */
+  const mx=droneHp();
+  if(d.hp<mx){
+    ctx.fillStyle="rgba(0,0,0,.45)";ctx.fillRect(-10,17,20,3);
+    ctx.fillStyle="#ff6b5e";ctx.fillRect(-10,17,20*Math.max(0,d.hp/mx),3);
+  }
   ctx.restore();
 }
 
@@ -1025,12 +1089,16 @@ const BOSS_NAMES=["الوحش القرمزي","أم الأخطار","سيد ال
   "خفاش الظلال","الأفعى الفضية","الحشرة المدرّعة","عرّافة النجوم","العملاق البركاني","سيدة الصقيع",
   "أخطبوط الفضاء","طائر المروحة","رأس المطرقة","شبح السديم","ملك المكعبات","مقص الجحيم",
   "محرك النيران","حامل الدروع","قنّاص الأفق","الشكل النهائي"];
-/* كل وحش له شكل مختلف تمامًا عن الآخر — لا يتكرر الشكل بين المراحل */
+/* كل وحش له شكل مختلف تمامًا عن الآخر — تتكرر الأشكال لكن بألوان جديدة كل دورة */
+const BOSS_PATS=["fan","burst","spiral","rain"]; /* طريقة هجوم الوحش تتغير مع كل مرحلة */
 function spawnBoss(){
   const tier=Math.ceil(level/5);
-  const hpMax=50+Math.min(level,200)*8; /* سقف الدم حتى تبقى المراحل العالية ممكنة */
+  /* قوة الوحش: المراحل الخمس الأولى ~30 طلقة، والمرحلة 10 تحتاج ~40 طلقة، وهكذا */
+  const hpMax=30+Math.max(0,Math.min(level,400)-5)*2;
+  const cyc=Math.floor((tier-1)/20);
   boss={x:W()/2,y:-90,r:60+Math.min(tier*6,20),t:0,dir:1,fireT:1.4,
-    hp:hpMax,maxHp:hpMax,tier,kind:Math.min(tier,20),
+    hp:hpMax,maxHp:hpMax,tier,kind:((tier-1)%20)+1,cyc,
+    pat:BOSS_PATS[(tier-1)%BOSS_PATS.length],wave:0,hf:0,
     name:BOSS_NAMES[(tier-1)%BOSS_NAMES.length],
     wob:Math.random()*7};
   SFX.roar();
@@ -1042,7 +1110,7 @@ function bossCol(kind){return BOSS_COLS[kind-1]||COL.boss;}
 function drawBoss(b){
   let np=null,nbd=1e9;
   for(const pl of players)if(pl.alive){const dd=(pl.x-b.x)**2+(pl.y-b.y)**2;if(dd<nbd){nbd=dd;np=pl;}}
-  const p=np||{x:b.x,y:b.y+400}, col=bossCol(b.kind);
+  const p=np||{x:b.x,y:b.y+400}, col=colorRotate(bossCol(b.kind),(b.cyc||0)*33);
   /* هالة خلفية */
   let g=ctx.createRadialGradient(b.x,b.y,b.r*.4,b.x,b.y,b.r*2);
   g.addColorStop(0,COL.boss+"22");g.addColorStop(1,"rgba(0,0,0,0)");
@@ -1398,8 +1466,11 @@ function drawPickup(k){
 }
 
 function burst(x,y,color,n,pow=1){
-  /* حلقة صدمة متوسعة عند كل انفجار */
-  if(!REDUCED)parts.push({x,y,vx:0,vy:0,life:.32+.12*pow,t:0,ring:true,c:color,r:4*pow,r2:(44+30*Math.random())*pow});
+  /* وميض قلب الانفجار + حلقة صدمة متوسعة عند كل انفجار */
+  if(!REDUCED){
+    parts.push({x,y,vx:0,vy:0,life:.14,t:0,flash:true,c:"#FFFFFF",r:14*pow});
+    parts.push({x,y,vx:0,vy:0,life:.32+.12*pow,t:0,ring:true,c:color,r:4*pow,r2:(44+30*Math.random())*pow});
+  }
   if(REDUCED)n=Math.min(n,4);
   for(let i=0;i<n;i++){
     const a=Math.random()*Math.PI*2,s=(40+Math.random()*160)*pow;
@@ -1411,8 +1482,87 @@ function burst(x,y,color,n,pow=1){
     const a=Math.random()*Math.PI*2,s=(130+Math.random()*260)*pow;
     parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.18+Math.random()*.22,t:0,c:"#FFFFFF",r:.8+Math.random()*1.4,spark:true});
   }
+  /* انفجارات أجمل: شظايا دوّارة + سحب دخان */
+  if(!REDUCED){
+    const nd=Math.min(10,3+Math.round(n*.3));
+    for(let i=0;i<nd;i++){const a=Math.random()*Math.PI*2,sd=(90+Math.random()*220)*pow;
+      parts.push({x,y,vx:Math.cos(a)*sd,vy:Math.sin(a)*sd-70,life:.45+Math.random()*.4,t:0,c:color,
+        r:1.8+Math.random()*2.4*pow,shard:true,vr:(Math.random()-.5)*14,rot:Math.random()*7});}
+    for(let i=0;i<3;i++)parts.push({x:x+(Math.random()-.5)*16,y:y+(Math.random()-.5)*16,
+      vx:(Math.random()-.5)*50,vy:-25-Math.random()*30,life:.8+Math.random()*.5,t:0,
+      c:"#1c2333",r:6+Math.random()*7*pow,smoke:true});
+  }
 }
 function pop(x,y,txt,c){pops.push({x,y,txt,c,t:0,life:.9});}
+
+/* ===== شكل الرصاص: 12 نمطًا عالي الدقة — كل مرحلة لها نمط ولون مختلفان ===== */
+function drawBullet(b){
+  const st=(level-1)%12, col=b.col||COL.gold;
+  ctx.save();ctx.translate(b.x,b.y);
+  ctx.rotate(Math.atan2(b.vx||0,-(b.vy||-1)));
+  const glow=a=>{ctx.globalAlpha=a;ctx.fillStyle=col;};
+  if(st===0){ /* كبسولة متوهجة */
+    glow(.28);ctx.beginPath();ctx.ellipse(0,0,5,11,0,0,7);ctx.fill();
+    let g=ctx.createLinearGradient(0,10,0,-10);g.addColorStop(0,col);g.addColorStop(1,"#fff");
+    ctx.globalAlpha=1;ctx.fillStyle=g;
+    ctx.beginPath();ctx.roundRect(-2.6,-10,5.2,20,2.6);ctx.fill();
+  }else if(st===1){ /* سهم بلّوري */
+    glow(.25);ctx.beginPath();ctx.ellipse(0,0,7,12,0,0,7);ctx.fill();
+    ctx.globalAlpha=1;ctx.fillStyle=col;
+    ctx.beginPath();ctx.moveTo(0,-12);ctx.lineTo(3.4,-2);ctx.lineTo(0,10);ctx.lineTo(-3.4,-2);ctx.closePath();ctx.fill();
+    ctx.fillStyle="#fff";ctx.beginPath();ctx.moveTo(0,-12);ctx.lineTo(1.7,-2);ctx.lineTo(0,10);ctx.lineTo(-1.7,-2);ctx.closePath();ctx.fill();
+  }else if(st===2){ /* نجمة رباعية */
+    glow(.25);ctx.beginPath();ctx.arc(0,0,9,0,7);ctx.fill();
+    ctx.globalAlpha=1;ctx.fillStyle=col;
+    ctx.beginPath();ctx.moveTo(0,-12);ctx.lineTo(2.6,-2.6);ctx.lineTo(12,0);ctx.lineTo(2.6,2.6);ctx.lineTo(0,12);ctx.lineTo(-2.6,2.6);ctx.lineTo(-12,0);ctx.lineTo(-2.6,-2.6);ctx.closePath();ctx.fill();
+    ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(0,0,2.6,0,7);ctx.fill();
+  }else if(st===3){ /* كرة بلازما */
+    glow(.3);ctx.beginPath();ctx.arc(0,0,10,0,7);ctx.fill();
+    ctx.globalAlpha=1;ctx.fillStyle=col;ctx.beginPath();ctx.arc(0,0,6,0,7);ctx.fill();
+    ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(0,-1,3,0,7);ctx.fill();
+    ctx.strokeStyle=col;ctx.lineWidth=1.6;ctx.globalAlpha=.9;
+    ctx.beginPath();ctx.arc(0,0,8.5,0,7);ctx.stroke();
+  }else if(st===4){ /* شعلة ربانة */
+    glow(.22);ctx.beginPath();ctx.ellipse(0,3,6,14,0,0,7);ctx.fill();
+    let g=ctx.createLinearGradient(0,14,0,-12);g.addColorStop(0,"rgba(255,255,255,0)");g.addColorStop(.55,col);g.addColorStop(1,"#fff");
+    ctx.globalAlpha=1;ctx.fillStyle=g;
+    ctx.beginPath();ctx.moveTo(0,-12);ctx.quadraticCurveTo(5.5,-2,2.2,12);ctx.quadraticCurveTo(0,8,-2.2,12);ctx.quadraticCurveTo(-5.5,-2,0,-12);ctx.fill();
+  }else if(st===5){ /* خيط تتبّع */
+    glow(.2);ctx.fillRect(-1.2,-16,2.4,30);
+    ctx.globalAlpha=1;ctx.fillStyle=col;ctx.beginPath();ctx.roundRect(-3.4,-11,6.8,5,2.4);ctx.fill();
+    ctx.fillStyle="#fff";ctx.beginPath();ctx.roundRect(-1.6,-8,3.2,14,1.6);ctx.fill();
+  }else if(st===6){ /* شوكة مزدوجة */
+    glow(.25);ctx.beginPath();ctx.ellipse(0,0,8,11,0,0,7);ctx.fill();
+    ctx.globalAlpha=1;ctx.fillStyle=col;
+    ctx.beginPath();ctx.moveTo(-5,-10);ctx.lineTo(0,-4);ctx.lineTo(5,-10);ctx.lineTo(1.6,2);ctx.lineTo(0,12);ctx.lineTo(-1.6,2);ctx.closePath();ctx.fill();
+    ctx.fillStyle="#fff";ctx.beginPath();ctx.moveTo(0,-6);ctx.lineTo(1.2,0);ctx.lineTo(0,8);ctx.lineTo(-1.2,0);ctx.closePath();ctx.fill();
+  }else if(st===7){ /* هلال قمري */
+    glow(.25);ctx.beginPath();ctx.arc(0,0,9,0,7);ctx.fill();
+    ctx.globalAlpha=1;ctx.fillStyle=col;
+    ctx.beginPath();ctx.arc(0,0,8,-2.4,2.4);ctx.arc(0,0,4,2.2,-2.2,true);ctx.closePath();ctx.fill();
+  }else if(st===8){ /* سهم جنّاحي */
+    glow(.22);ctx.beginPath();ctx.ellipse(0,-2,7,13,0,0,7);ctx.fill();
+    ctx.globalAlpha=1;ctx.fillStyle=col;
+    ctx.beginPath();ctx.moveTo(0,-13);ctx.lineTo(6,2);ctx.lineTo(0,-1);ctx.lineTo(-6,2);ctx.closePath();ctx.fill();
+    ctx.fillStyle="#fff";ctx.beginPath();ctx.moveTo(0,-13);ctx.lineTo(2,0);ctx.lineTo(0,9);ctx.lineTo(-2,0);ctx.closePath();ctx.fill();
+  }else if(st===9){ /* ماس مقصوص */
+    glow(.25);ctx.beginPath();ctx.ellipse(0,0,8,12,0,0,7);ctx.fill();
+    ctx.globalAlpha=1;ctx.fillStyle=col;
+    ctx.beginPath();ctx.moveTo(0,-11);ctx.lineTo(4.5,0);ctx.lineTo(0,11);ctx.lineTo(-4.5,0);ctx.closePath();ctx.fill();
+    ctx.strokeStyle="#fff";ctx.lineWidth=1.4;ctx.beginPath();ctx.moveTo(0,-11);ctx.lineTo(0,11);ctx.stroke();
+  }else if(st===10){ /* نبضة حلقيّة */
+    glow(.28);ctx.beginPath();ctx.arc(0,0,10,0,7);ctx.fill();
+    ctx.globalAlpha=1;ctx.strokeStyle=col;ctx.lineWidth=3;
+    ctx.beginPath();ctx.arc(0,0,6,0,7);ctx.stroke();
+    ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(0,0,2.4,0,7);ctx.fill();
+  }else{ /* برق متعرج */
+    glow(.25);ctx.beginPath();ctx.ellipse(0,0,7,13,0,0,7);ctx.fill();
+    ctx.globalAlpha=1;ctx.strokeStyle="#fff";ctx.lineWidth=2.4;ctx.lineJoin="round";
+    ctx.beginPath();ctx.moveTo(2,-12);ctx.lineTo(-3,-2);ctx.lineTo(2,0);ctx.lineTo(-2,12);ctx.stroke();
+    ctx.strokeStyle=col;ctx.lineWidth=1.2;ctx.stroke();
+  }
+  ctx.restore();ctx.globalAlpha=1;
+}
 
 function levelConfig(n){
   const bossL=n%5===0, hard=Math.max(0,Math.min(1,(n-100)/400)); /* تباطؤ النمو بعد المرحلة 100 */
@@ -1420,7 +1570,6 @@ function levelConfig(n){
     count:bossL?Math.min(70,Math.floor(2+n*.5*(1-hard*.75))):Math.min(60,Math.floor(6+n*2.2)),
     interval:Math.max(.24,1.1-n*.02)};
 }
-let linesRounds=0; /* عدّاد جولات تطوير "خطوط الطلقات" */
 function startLevel(n){
   level=n;ui.level.textContent=n;
   const nbCols=["drone","boss","gold","player"];
@@ -1430,15 +1579,12 @@ function startLevel(n){
   /* كل خمس مراحل تعود الطلقات الملتقطة لخط واحد */
   const resetShots=n%5===1;
   if(resetShots)players.forEach(p=>{p.tripleLv=0;p.tripleT=0;});
-  /* حد تطوير "خطوط الطلقات": بعد 3 جولات يعود لخط واحد ويجب شراؤه من جديد */
+  /* تطوير "خطوط الطلقات" يعود إلى الصفر كل عشر مراحل ويجب شراؤه من جديد */
   let linesNote=false;
-  if(n>1&&(mode!=="net"||netIsHost)){
-    linesRounds++;
-    if(linesRounds>=3){
-      linesRounds=0;linesNote=true;
-      [0,1].forEach(pi=>{if(prof[pi]&&prof[pi].ups)prof[pi].ups.lines=0;});
-      if(mode==="net"){profStore(0);netSend({t:"ev",k:"lreset"});}else saveEco();
-    }
+  if(n>1&&(n-1)%10===0&&(mode!=="net"||netIsHost)){
+    linesNote=true;
+    [0,1].forEach(pi=>{if(prof[pi]&&prof[pi].ups)prof[pi].ups.lines=0;});
+    if(mode==="net"){profStore(0);netSend({t:"ev",k:"lreset"});}else saveEco();
   }
   const rn=resetShots?t("resetNote"):null,ln=linesNote?t("linesNote"):null;
   const notes=rn&&ln?rn+" • "+ln:(rn||ln);
@@ -1463,12 +1609,13 @@ function fire(p){
   const y=p.y-20;
   const dmg=bulletDmg(p.pi);
   const vy=-640-30*upLv("bspeed",p.pi);
-  bullets.push({x:p.x,y,vx:0,vy:vy-20,dmg,own:p});
+  const col=colorRotate(p.col||COL.gold,(level*37)%360);
+  bullets.push({x:p.x,y,vx:0,vy:vy-20,dmg,own:p,col});
   const pairs=gunPairs(p);
   for(let i=1;i<=pairs;i++){
     const off=Math.min(13*i+4,W()/2-26),ang=42+16*Math.min(i,4);
-    bullets.push({x:p.x-off,y:y+5+i*.5,vx:-ang,vy:vy,dmg,own:p},
-                 {x:p.x+off,y:y+5+i*.5,vx:ang,vy:vy,dmg,own:p});
+    bullets.push({x:p.x-off,y:y+5+i*.5,vx:-ang,vy:vy,dmg,own:p,col},
+                 {x:p.x+off,y:y+5+i*.5,vx:ang,vy:vy,dmg,own:p,col});
   }
   SFX.shoot();
 }
@@ -1476,13 +1623,13 @@ function fire(p){
 function mult(p){return Math.min(1+p.combo*.1,5);}
 function killRock(r,i,killer){
   rocks.splice(i,1);
-  burst(r.x,r.y,"#9FB4D4",r.r>30?26:12,r.r>30?1.4:1);
+  burst(r.x,r.y,skinOf().rock[1],r.r>30?26:12,r.r>30?1.4:1);
   const pts=Math.round((10+r.r)*mult(killer||players[0]||{combo:0}));
   if(killer){killer.score+=pts;killer.combo++;killer.comboT=2.5;}
   pop(r.x,r.y,"+"+pts,COL.gold);
   r.r>30?SFX.bigBoom():SFX.boom();
   if(r.r>26)for(let k=0;k<2;k++)
-    rocks.push(makeRock(r.x+(k?12:-12),r.y,r.r*.55,(k?90:-90)+Math.random()*40,r.vy*.9));
+    rocks.push(makeRock(r.x+(k?12:-12),r.y,r.r*.55,(k?90:-90)+Math.random()*40,r.vy*.9,null,Math.max(1,Math.ceil(r.hp*.5))));
   dropLoot(r.x,r.y);
   if(settings.shake)shake=Math.min(shake+(r.r>30?8:3),14);
 }
@@ -1491,7 +1638,7 @@ function damagePlayer(p){
   if(p.shieldOn){p.shieldOn=false;p.inv=1.2;SFX.hit();
     burst(p.x,p.y,p.col,16);pop(p.x,p.y-30,"الدرع تصدّه!",p.col);return;}
   p.lives--;renderLives();p.inv=2+.3*upLv("shield",p.pi);p.combo=0;SFX.hit();
-  if(settings.shake)shake=14;flash=.5;
+  if(settings.shake)shake=14;
   burst(p.x,p.y,COL.enemy,24);
   if(p.lives<=0){p.alive=false;burst(p.x,p.y,COL.enemy,40);
     if(!alivePlayers().length)gameOver();}
@@ -1598,7 +1745,6 @@ function update(dt){
   ui.combo.textContent=(function(){const c=aps.find(q=>q.combo>2);
     return c?"سلسلة ×"+c.combo+" (مضاعف "+mult(c).toFixed(1)+")":"";})();
   if(shake>0)shake=Math.max(0,shake-40*dt);
-  if(flash>0)flash-=dt*2;
 
   for(const s of stars){s.y+=s.sp*dts;if(s.y>H()){s.y=-2;s.x=Math.random()*W();}}
   for(const nb of nebulae){nb.y+=nb.dy*dts;nb.x+=nb.dx*dts;
@@ -1616,7 +1762,7 @@ function update(dt){
       /* نصف الأعداء يطلقون الرصاص، والنصف الآخر لا يطلق أبدًا لكنه يهجم */
       if(spawned%2===1)spawnDrone();
       else{const r=14+Math.random()*20,sp=36+level*3+Math.random()*16;
-        rocks.push(makeRock(40+Math.random()*(W()-80),-r-10,r,(Math.random()-.5)*30,sp));}
+        rocks.push(makeRock(40+Math.random()*(W()-80),-r-10,r,(Math.random()-.5)*30,sp,null,smallHp()));}
     }
   }
 
@@ -1642,13 +1788,13 @@ function update(dt){
     for(let j=rocks.length-1;j>=0;j--){
       const r=rocks[j];
       if((b.x-r.x)**2+(b.y-r.y)**2<r.r*r.r){
-        r.hp-=b.dmg;hit=true;burst(b.x,b.y,"#FFE0A6",3,.5);
+        r.hp-=b.dmg;hit=true;r.hf=.08;burst(b.x,b.y,b.col||"#FFE0A6",3,.5);
         if(r.hp<=0)killRock(r,j,b.own);else{SFX.hit();if(settings.shake)shake=Math.min(shake+1.5,10);}
         break;
       }
     }
     if(!hit&&boss&&(b.x-boss.x)**2+(b.y-boss.y)**2<boss.r*boss.r){
-      boss.hp-=b.dmg;hit=true;burst(b.x,b.y,"#FFE0A6",4,.6);SFX.hit();
+      boss.hp-=b.dmg;hit=true;boss.hf=.08;burst(b.x,b.y,b.col||"#FFE0A6",4,.6);SFX.hit();
       if(settings.shake)shake=Math.min(shake+1.5,10);
       if(boss.hp<=0){
         const o=b.own||aps[0];
@@ -1656,7 +1802,7 @@ function update(dt){
         pop(boss.x,boss.y,"+"+pts,COL.gold);
         const bc=30+level*4;addCoins(o.pi,bc);
         pop(boss.x,boss.y-46,"+"+bc+" 🪙",COL.gold);
-        burst(boss.x,boss.y,COL.boss,60,2);SFX.bigBoom();
+        burst(boss.x,boss.y,bossCol(boss.kind),60,2);SFX.bigBoom();
         if(settings.shake)shake=18;
         dropLoot(boss.x,boss.y,true);dropLoot(boss.x-40,boss.y+10,true);
         boss=null;toSpawn=Math.max(0,spawned);
@@ -1665,9 +1811,9 @@ function update(dt){
     if(!hit)for(let j=drones.length-1;j>=0;j--){
       const d=drones[j];
       if((b.x-d.x)**2+(b.y-d.y)**2<d.r*d.r){
-        d.hp-=b.dmg;hit=true;burst(b.x,b.y,COL.drone,4,.5);SFX.hit();
+        d.hp-=b.dmg;hit=true;d.hf=.08;burst(b.x,b.y,skinOf().drone,4,.5);SFX.hit();
         if(d.hp<=0){
-          drones.splice(j,1);burst(d.x,d.y,COL.drone,16);
+          drones.splice(j,1);burst(d.x,d.y,skinOf().drone,16);
           const o=b.own||aps[0];
           const pts=Math.round(60*mult(o));o.score+=pts;o.combo++;o.comboT=2.5;
           pop(d.x,d.y,"+"+pts,COL.drone);SFX.boom();dropLoot(d.x,d.y);
@@ -1680,9 +1826,16 @@ function update(dt){
 
   for(let i=rocks.length-1;i>=0;i--){
     const r=rocks[i];
+    if(r.hf>0)r.hf-=dts;
     if(r.attack&&r.tgt&&r.tgt.alive){
       const a=Math.atan2(r.tgt.y-r.y,r.tgt.x-r.x),sp=150+level*2.5;
       r.vx=Math.cos(a)*sp;r.vy=Math.sin(a)*sp;
+    }
+    /* طريقة تقدم الوحش تتغير حسب نمط المرحلة: انسياب، تلوين، خُطى، انقضاض */
+    if(!r.attack){
+      if(r.pat==="sine")r.x+=Math.sin(r.y*.02+r.ph)*70*dts;
+      else if(r.pat==="zig")r.x+=Math.sign(Math.sin(r.y*.055+r.ph))*110*dts;
+      else if(r.pat==="fast")r.vy=Math.min(r.vy+55*dts,160+level*3);
     }
     r.x+=r.vx*dts;r.y+=r.vy*dts;r.rot+=r.vr*dts;
     if(!r.attack){if((r.x<r.r&&r.vx<0)||(r.x>W()-r.r&&r.vx>0))r.vx*=-1;}
@@ -1695,17 +1848,30 @@ function update(dt){
     const d=drones[i];d.t+=dts;
     if(d.y<110)d.y+=90*dts;
     else d.x=Math.max(30,Math.min(W()-30,d.x+Math.sin(d.t*1.4)*80*dts+d.drift*dts*.2));
+    if(d.hf>0)d.hf-=dts;
     d.fireT-=dts;
     if(d.fireT<=0&&d.y>0&&aps.length){
-      d.fireT=1.4+Math.random()*1.2;
       const tgt=aps[Math.random()*aps.length|0];
-      const a=Math.atan2(tgt.y-d.y,tgt.x-d.x);
-      ebullets.push({x:d.x,y:d.y,vx:Math.cos(a)*230,vy:Math.sin(a)*230});
-      tone(320,140,.12,"square",.1);
+      const a=Math.atan2(tgt.y-d.y,tgt.x-d.x),sp=200+Math.min(level*2.5,130);
+      /* طريقة إطلاق الدرون تتغير مع كل مرحلة */
+      if(d.pat==="spread"){
+        d.fireT=1.9+Math.random()*.8;
+        for(let k=-1;k<=1;k++)ebullets.push({x:d.x,y:d.y,vx:Math.cos(a+k*.32)*sp,vy:Math.sin(a+k*.32)*sp});
+      }else if(d.pat==="burst"){
+        d.fireT=2.1+Math.random();
+        for(let k=0;k<3;k++)ebullets.push({x:d.x,y:d.y,vx:Math.cos(a+k*.14)*(sp+k*55),vy:Math.sin(a+k*.14)*(sp+k*55)});
+      }else if(d.pat==="fast"){
+        d.fireT=.85+Math.random()*.6;
+        ebullets.push({x:d.x,y:d.y,vx:Math.cos(a)*(sp+95),vy:Math.sin(a)*(sp+95)});
+      }else{
+        d.fireT=1.4+Math.random()*1.2;
+        ebullets.push({x:d.x,y:d.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp});
+      }
+      tone(300+((level*23)%140),140,.12,"square",.1);
     }
     for(const p of aps)
       if((d.x-p.x)**2+(d.y-p.y)**2<(d.r+p.r)**2){
-        drones.splice(i,1);burst(d.x,d.y,COL.drone,16);damagePlayer(p);break;
+        drones.splice(i,1);burst(d.x,d.y,skinOf().drone,16);damagePlayer(p);break;
       }
   }
 
@@ -1717,6 +1883,7 @@ function update(dt){
   }
 
   if(boss){
+    if(boss.hf>0)boss.hf-=dts;
     boss.t+=dts;
     if(boss.y<120)boss.y+=55*dts;
     else{
@@ -1725,9 +1892,23 @@ function update(dt){
       boss.fireT-=dts;
       if(boss.fireT<=0){
         const ratio=boss.hp/boss.maxHp;
-        boss.fireT=ratio<.4?.9:1.5;
-        for(let k=-1;k<=1;k++)
-          ebullets.push({x:boss.x,y:boss.y+boss.r*.5,vx:k*130,vy:240});
+        boss.fireT=ratio<.4?.9:1.4;
+        const bs=190+Math.min(level*2.5,150),bx=boss.x,by=boss.y+boss.r*.5;
+        /* طريقة هجوم الوحش تتغير مع كل مرحلة: مروحة، موجه، حلزون، مطر */
+        if(boss.pat==="spiral"){
+          boss.wave++;
+          const base=Math.PI*.42+((boss.wave%6)*.14);
+          for(let k=0;k<4;k++){const a=base+k*Math.PI/9;
+            ebullets.push({x:bx,y:by,vx:Math.cos(a)*bs*.85,vy:Math.abs(Math.sin(a))*bs});}
+        }else if(boss.pat==="rain"){
+          for(let k=0;k<3;k++)ebullets.push({x:60+Math.random()*(W()-120),y:boss.y-boss.r*.4,
+            vx:(Math.random()-.5)*60,vy:bs});
+        }else if(boss.pat==="burst"){
+          const tgt=aps[0],a=tgt?Math.atan2(tgt.y-boss.y,tgt.x-boss.x):Math.PI/2;
+          for(let k=-1;k<=1;k++)ebullets.push({x:bx,y:by,vx:Math.cos(a+k*.24)*bs,vy:Math.sin(a+k*.24)*bs});
+        }else{
+          for(let k=-1;k<=1;k++)ebullets.push({x:bx,y:by,vx:k*130,vy:bs});
+        }
         tone(260,110,.15,"square",.12);
         if(ratio<.5&&Math.random()<.4)spawnDrone();
       }
@@ -1753,6 +1934,8 @@ function update(dt){
 
   for(let i=parts.length-1;i>=0;i--){
     const pt=parts[i];pt.t+=dts;pt.x+=pt.vx*dts;pt.y+=pt.vy*dts;
+    if(pt.smoke){pt.vx*=1-1.6*dts;pt.vy*=1-1.6*dts;}
+    if(pt.shard){pt.vy+=230*dts;pt.rot=(pt.rot||0)+(pt.vr||5)*dts;}
     if(pt.t>=pt.life)parts.splice(i,1);
   }
   for(let i=pops.length-1;i>=0;i--){
@@ -1817,11 +2000,28 @@ function draw(){
 
   for(const pt of parts){
     const al=1-pt.t/pt.life;
+    if(pt.flash){ /* وميض قلب الانفجار */
+      ctx.globalCompositeOperation="lighter";
+      ctx.globalAlpha=al;ctx.fillStyle=pt.c;
+      ctx.beginPath();ctx.arc(pt.x,pt.y,pt.r*(.5+3*(pt.t/pt.life)),0,7);ctx.fill();
+      ctx.globalCompositeOperation="source-over";continue;
+    }
     if(pt.ring){
       const rr=pt.r+(pt.r2-pt.r)*(pt.t/pt.life);
       ctx.globalAlpha=al*.85;ctx.strokeStyle=pt.c;ctx.lineWidth=3.2*al+.4;
       ctx.beginPath();ctx.arc(pt.x,pt.y,rr,0,7);ctx.stroke();
       continue;
+    }
+    if(pt.smoke){ /* دخان يتمدد ويتلاشى */
+      ctx.globalAlpha=al*.32;ctx.fillStyle=pt.c;
+      ctx.beginPath();ctx.arc(pt.x,pt.y,pt.r+pt.r*2*(pt.t/pt.life),0,7);ctx.fill();
+      continue;
+    }
+    if(pt.shard){ /* شظايا دوّارة تسقط بالجذب */
+      ctx.save();ctx.translate(pt.x,pt.y);ctx.rotate(pt.rot||0);
+      ctx.globalAlpha=al;ctx.fillStyle=pt.c;
+      ctx.fillRect(-pt.r,-pt.r*.35,pt.r*2,pt.r*.7);
+      ctx.restore();continue;
     }
     if(pt.spark)ctx.globalCompositeOperation="lighter";
     ctx.fillStyle=pt.c;ctx.globalAlpha=al;
@@ -1835,10 +2035,15 @@ function draw(){
   for(const d of drones)drawDrone(d);
   if(boss)drawBoss(boss);
 
-  ctx.fillStyle=COL.gold;
-  for(const b of bullets)ctx.fillRect(b.x-2,b.y-7,4,14);
-  ctx.fillStyle=COL.enemy;
-  for(const b of ebullets){ctx.beginPath();ctx.arc(b.x,b.y,4.5,0,7);ctx.fill();}
+  for(const b of bullets)drawBullet(b);
+  const ecol=skinOf().drone;
+  for(const b of ebullets){
+    ctx.globalAlpha=.3;ctx.fillStyle=ecol;
+    ctx.beginPath();ctx.arc(b.x,b.y,8.5,0,7);ctx.fill();
+    ctx.globalAlpha=1;ctx.fillStyle=ecol;
+    ctx.beginPath();ctx.arc(b.x,b.y,4.6,0,7);ctx.fill();
+    ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(b.x,b.y,2.2,0,7);ctx.fill();
+  }
 
   if(state==="playing"||state==="paused"){
     for(const p of players){
@@ -1859,7 +2064,6 @@ function draw(){
     ctx.restore();
   }
 
-  if(flash>0){ctx.fillStyle=`rgba(255,80,80,${flash})`;ctx.fillRect(0,0,W(),H());}
   ctx.restore();
   drawTouchZones();
 }
@@ -1878,7 +2082,7 @@ requestAnimationFrame(t=>{tPrev=t;requestAnimationFrame(loop);});
 
 function clearEntities(){
   boss=null;players=[];bullets=[];rocks=[];drones=[];ebullets=[];pickups=[];parts=[];pops=[];shoots=[];
-  shake=0;flash=0;timeScale=1;slowT=0;attackT=4;
+  shake=0;timeScale=1;slowT=0;attackT=4;
 }
 function show(scr){
   [ui.menu,ui.levels,ui.set,ui.pause,ui.done,ui.over,ui.shop,ui.net].forEach(s=>s.classList.add("hidden"));
@@ -1892,7 +2096,6 @@ function startGame(n,m){
   if(m)mode=m;
   audioInit();
   clearEntities();
-  linesRounds=0;
   state="playing";
   players=mode==="duo"?[newPlayer(0,1),newPlayer(1,2)]
     :mode==="net"?[newPlayer(0,0),newPlayer(1,0)]:[newPlayer(0,0)];
@@ -1957,7 +2160,7 @@ for(let i=0;i<100;i++){
 const UP_DEFS=[
   {k:"dmg",   name:"قوة التدمير",   desc:"+25% ضرر للرصاصة بكل مستوى", base:25},
   {k:"rate",  name:"سرعة الإطلاق",  desc:"إطلاق أسرع بـ 4% بكل مستوى", base:30},
-  {k:"lines", name:"خطوط الطلقات",  desc:"+خطّان إضافيان من الطلقات بكل مستوى — ينتهي بعد 3 جولات وتعود لخط واحد", base:80},
+  {k:"lines", name:"خطوط الطلقات",  desc:"+خطّان إضافيان من الطلقات بكل مستوى — تُصفَّر الخطوط تلقائيًا كل 10 مراحل", base:80},
   {k:"spd",   name:"سرعة الحركة",   desc:"مركبة أسرع بكل مستوى", base:30},
   {k:"life",  name:"دروع إضافية",   desc:"+1 درع (قلب) بكل مستوى", base:60},
   {k:"coin",  name:"جاذب الذهب",    desc:"+15% ذهب من كل التقاط بكل مستوى", base:35},
@@ -1973,8 +2176,33 @@ function upPrice(def,t){return Math.round(def.base*Math.pow(1.6,t+1));}
 
 /* ===== الموسيقى المحمسة (مولدة بالكود) ===== */
 const SPB=60/150/2; /* 150 نبضة بالدقيقة — نصف نبضة لكل خطوة */
-const BASS=[110,0,110,131,110,0,98,0, 110,0,110,131,147,0,131,0];
-const LEAD=[440,554,659,554, 440,659,880,659, 392,494,587,494, 392,587,784,587];
+let SPBv=SPB;
+/* نغمة الخلفية تتغير مع كل مرحلة: جذر + سلم + لحن + سرعة + صوت مختلف */
+const MUS_ROOTS=[110,98,123.47,87.31,130.81,116.54,146.83,73.42];
+const MUS_SCALES=[[0,2,3,5,7,8,10],[0,2,4,7,9],[0,1,5,7,8],[0,3,5,7,10],[0,2,5,7,9],[0,1,4,5,8,10]];
+const MUS_BASS=[0,null,0,3,0,null,-2,null, 0,null,0,3,5,null,3,null];
+const MUS_LEADS=[
+ [0,2,4,2, 0,4,6,4, -1,2,5,2, -1,4,7,4],
+ [0,4,2,4, 6,4,2,0, 1,3,5,3, 6,5,3,1],
+ [0,0,4,4, 2,2,6,6, 1,1,5,5, 4,2,0,-1],
+ [6,4,2,0, 4,2,0,-1, 5,3,1,0, 3,1,0,-1],
+ [0,2,3,5, 7,5,3,2, 4,6,5,4, 2,0,2,-1],
+ [4,4,2,2, 0,0,6,6, 5,5,3,3, 1,1,4,4]
+];
+let musT=null,musLv=-1;
+function musTune(){
+  const L=Math.max(1,level|0);
+  const lead=MUS_LEADS[(L-1)%MUS_LEADS.length];
+  const sc=MUS_SCALES[((L-1)/MUS_LEADS.length|0)%MUS_SCALES.length];
+  const root=MUS_ROOTS[(L-1)%MUS_ROOTS.length];
+  SPBv=60/(146+((L*13)%22))/2;
+  return {lead,sc,root,wave:(L-1)%3===0?"square":(L-1)%3===1?"triangle":"sawtooth"};
+}
+function musFreq(deg,root,sc){
+  if(deg<0||deg==null)return 0;
+  const idx=deg%sc.length,oct=Math.floor(deg/sc.length);
+  return root*4*Math.pow(2,(sc[idx]+12*oct)/12);
+}
 let mStep=0,mNext=0,mTimer=null;
 function kick(t){
   const o=AC.createOscillator(),g=AC.createGain();o.type="sine";
@@ -1994,21 +2222,24 @@ function bassN(t,f,d){
   g.gain.setValueAtTime(.15,t);g.gain.exponentialRampToValueAtTime(.001,t+d);
   o.connect(g);g.connect(musGain);o.start(t);o.stop(t+d);
 }
-function leadN(t,f,d){
-  const o=AC.createOscillator(),g=AC.createGain();o.type="square";o.frequency.value=f;
+function leadN(t,f,d,w){
+  const o=AC.createOscillator(),g=AC.createGain();o.type=w||"square";o.frequency.value=f;
   g.gain.setValueAtTime(.04,t);g.gain.exponentialRampToValueAtTime(.001,t+d);
   o.connect(g);g.connect(musGain);o.start(t);o.stop(t+d);
 }
 function schedStep(t,s){
+  if(level!==musLv){musLv=level;musT=musTune();}
   const st=s%16;
   if(st%4===0)kick(t);
   if(st%2===1)hat(t);
-  if(BASS[st])bassN(t,BASS[st],SPB*.9);
-  if(LEAD[st])leadN(t,LEAD[st],SPB*.7);
+  const bo=MUS_BASS[st];
+  if(bo!==null)bassN(t,musT.root*Math.pow(2,bo/12),SPBv*.9);
+  const f=musFreq(musT.lead[st],musT.root,musT.sc);
+  if(f)leadN(t,f,SPBv*.7,musT.wave);
 }
 function musicTick(){
   if(!AC||muted||!settings.music){if(AC)mNext=AC.currentTime;return;}
-  while(mNext<AC.currentTime+.35){schedStep(mNext,mStep);mStep=(mStep+1)%16;mNext+=SPB;}
+  while(mNext<AC.currentTime+.35){schedStep(mNext,mStep);mStep=(mStep+1)%16;mNext+=SPBv;}
 }
 function startMusic(){
   if(mTimer||!AC)return;
@@ -2045,7 +2276,7 @@ function renderShop(){
         const pr=upPrice(def,t);
         btn.textContent="🪙 "+pr;btn.disabled=P.coins<pr;
         btn.onclick=()=>{if(P.coins>=pr){P.coins-=pr;P.ups[def.k]=t+1;saveEco();updateCoinsLbl();renderShop();SFX.pick();
-        if(def.k==="lines"){linesRounds=0;if(mode==="net")netSend({t:"ev",k:"lbuy"});}
+        if(def.k==="lines"&&mode==="net")netSend({t:"ev",k:"lbuy"});
         if(mode==="net"&&!netIsHost)netSend({t:"ups",ups:P.ups});}};
       }
       row.appendChild(btn);list.appendChild(row);
@@ -2169,7 +2400,7 @@ function snap(){
   /* تطبيع الإحداثيات إلى عالم افتراضي 1000×1000 حتى يرى كل جهاز كامل
      ساحة اللعب مهما اختلف حجم شاشته (لابتوب كبير / هاتف صغير) */
   const sw=1000/W(),sy=1000/H(),nx=v=>Math.round(v*sw),ny=v=>Math.round(v*sy);
-  return{t:"st",st:state,lv:level,sh:Math.round(shake*10)/10,fl:Math.round(flash*100)/100,
+  return{t:"st",st:state,lv:level,sh:Math.round(shake*10)/10,
     pl:players.map(p=>[nx(p.x),ny(p.y),p.lives,p.score,p.alive?1:0,p.tripleLv,
       Math.round(p.inv*10)/10,p.shieldOn?1:0,p.combo]),
     bl:bullets.map(b=>[nx(b.x),ny(b.y),b.own&&b.own.pi===1?1:0]),
@@ -2196,9 +2427,9 @@ function applySnap(m){
     p.lives=a[2];p.score=a[3];p.alive=!!a[4];p.tripleLv=a[5];
     p.inv=a[6];p.shieldOn=!!a[7];p.combo=a[8];p.pi=i;p.ci=0;p.col=PL_COLORS[i];});
   const pl=players[netLocal];
-  if(pl&&prevLives!=null&&pl.lives<prevLives){SFX.hit();flash=.5;}
+  if(pl&&prevLives!=null&&pl.lives<prevLives){SFX.hit();}
   prevLives=pl?pl.lives:null;
-  shake=m.sh;flash=Math.max(flash,m.fl);
+  shake=m.sh;
   let mineN=0;for(const b of m.bl)if(b[2])mineN++;
   if(mineN>prevMine)SFX.shoot();
   prevMine=mineN;
@@ -2237,7 +2468,6 @@ function netFrame(dt){
   for(const st of stars){st.y+=st.sp*dt;if(st.y>H()){st.y=-2;st.x=Math.random()*W();}}
   for(const nb of nebulae){nb.y+=nb.dy*dt;nb.x+=nb.dx*dt;if(nb.y-nb.r>H()){nb.y=-nb.r;nb.x=Math.random()*W();}}
   if(shake>0)shake=Math.max(0,shake-40*dt);
-  if(flash>0)flash=Math.max(0,flash-dt*2);
   for(const p of players)if(p&&p.inv>0)p.inv-=dt;
   /* تنعيم حركة اللاعبين بين اللقطات الواردة */
   for(const p of players)if(p&&p.tx!=null){
@@ -2285,7 +2515,7 @@ function onNetData(m){
       ui.final.textContent="النقاط: "+m.sc;ui.hi.textContent=hiScore;show(ui.over);}
     else if(m.k==="coins"){prof[0].coins+=m.n|0;profStore(0);updateCoinsLbl();}
     else if(m.k==="lreset"&&!netIsHost){[0,1].forEach(pi=>{if(prof[pi]&&prof[pi].ups)prof[pi].ups.lines=0;});profStore(0);}
-    else if(m.k==="lbuy"&&netIsHost)linesRounds=0;
+    else if(m.k==="lbuy"&&netIsHost)/* الخطوط تُصفَّر تلقائيًا كل 10 مراحل */;
     else if(m.k==="pause"){state="paused";show(ui.pause);}
     else if(m.k==="res"){state="playing";show(null);}
     else if(m.k==="bye")netCleanup("خرج اللاعب الآخر — عدت للقائمة");
