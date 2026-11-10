@@ -805,7 +805,8 @@ let level=1,lastTier=0;
 let shake=0,timeScale=1,slowT=0;
 let spawned=0,toSpawn=0,spawnT=0,levelDone=false,shootersLeft=0,chargersLeft=0,attackT=4;
 let bullets=[],rocks=[],drones=[],ebullets=[],pickups=[],parts=[],pops=[],stars=[],shoots=[],nebulae=[];
-let boss=null,tPrev=0,hoverT=0;
+let bosses=[],tPrev=0,hoverT=0;
+let exitT=0,miniDone=false; /* أنيميشن انطلاق الطائرة بعد الفوز + حارس المرحلة */
 const PL_COLORS=["#FFC24B","#64E0FF","#C77DFF"];
 /* مخططات التحكم: 0 = لاعب فردي بكل الأزرار، 1 = اللاعب 1، 2 = اللاعب 2، 3 = اللاعب الثالث */
 const CTRL=[
@@ -1274,6 +1275,10 @@ function drawRock(r){
     ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(f[0],f[1]);ctx.stroke();
   }
   ctx.restore();
+  /* عينان حيتان تلاحقان اللاعب — حتى الصخور الصغيرة حية، والبلورة تدور حولهما */
+  let nrp=null,nrd=1e9;
+  for(const pl of players)if(pl.alive){const dd=(pl.x-r.x)**2+(pl.y-r.y)**2;if(dd<nrd){nrd=dd;nrp=pl;}}
+  drawEyes(r.x,r.y,r.r*1.15,performance.now()/1000,r.ph,1,nrp,1.25);
 }
 
 /* ===== الدرونات ===== */
@@ -1307,8 +1312,6 @@ function drawDrone(d){
   ctx.closePath();ctx.fill();
   if(d.hf>0){ctx.fillStyle="rgba(255,255,255,"+Math.min(.85,d.hf*9).toFixed(2)+")";ctx.fill();}
   ctx.strokeStyle="#fff";ctx.lineWidth=1.4;ctx.stroke();
-  ctx.fillStyle="#fff";
-  ctx.beginPath();ctx.arc(0,shp===1?-4:0,2.4,0,7);ctx.fill();
   /* شريط دم صغير يظهر عند تضرر الدرون */
   const mx=droneHp();
   if(d.hp<mx){
@@ -1316,6 +1319,10 @@ function drawDrone(d){
     ctx.fillStyle="#ff6b5e";ctx.fillRect(-10,17,20*Math.max(0,d.hp/mx),3);
   }
   ctx.restore();
+  /* عينان تلاحقان اللاعب أينما تحرك — الدرون يراقبك */
+  let ndp=null,ndd=1e9;
+  for(const pl of players)if(pl.alive){const dd=(pl.x-d.x)**2+(pl.y-d.y)**2;if(dd<ndd){ndd=dd;ndp=pl;}}
+  drawEyes(d.x,d.y,20,d.t,d.t*.6,0,ndp,1.15);
 }
 
 /* ===== الوحش ===== */
@@ -1325,16 +1332,39 @@ const BOSS_NAMES=["الوحش القرمزي","أم الأخطار","سيد ال
   "محرك النيران","حامل الدروع","قنّاص الأفق","الشكل النهائي"];
 /* كل وحش له شكل مختلف تمامًا عن الآخر — تتكرر الأشكال لكن بألوان جديدة كل دورة */
 const BOSS_PATS=["fan","burst","spiral","rain"]; /* طريقة هجوم الوحش تتغير مع كل مرحلة */
+function bossPower(tier){ /* كل 5 مراحل تزيد قوة الوحش نصفًا (×1.5) — بسقف ×8 ليبقى اللعب ممكنًا */
+  return Math.min(Math.pow(1.5,tier-1),8);
+}
+function easeOutBack(x){const c1=1.70158,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2);}
 function spawnBoss(){
   const tier=Math.ceil(level/5);
-  /* قوة الوحش: المراحل الخمس الأولى ~30 طلقة، والمرحلة 10 تحتاج ~40 طلقة، وهكذا */
-  const hpMax=30+Math.max(0,Math.min(level,400)-5)*2;
-  const cyc=Math.floor((tier-1)/20);
-  boss={x:W()/2,y:-90,r:60+Math.min(tier*6,20),t:0,dir:1,fireT:1.4,
-    hp:hpMax,maxHp:hpMax,tier,kind:((tier-1)%20)+1,cyc,
-    pat:BOSS_PATS[(tier-1)%BOSS_PATS.length],wave:0,hf:0,
-    name:BOSS_NAMES[(tier-1)%BOSS_NAMES.length],
-    wob:Math.random()*7};
+  const hpMax=Math.round((30+Math.max(0,Math.min(level,400)-5)*2)*bossPower(tier));
+  /* أكثر من وحش في نفس المرحلة — وكل وحش مختلف تمامًا عن الآخر: شكل واسم ونمط هجوم */
+  const cnt=level<15?2:3;
+  const k0=((tier-1)%20)+1;
+  const hpEach=Math.round(hpMax*(cnt===2?.75:.6)); /* مع عدة وحوش تُخفف صحة كل واحد للتوازن */
+  bosses=[];
+  for(let i=0;i<cnt;i++){
+    const kind=((k0-1+i*7)%20)+1;
+    bosses.push({x:W()*(cnt===2?(i?.68:.32):(.25+.25*i)),y:-90-i*80,
+      r:56+Math.min(tier*6,20)-i*6,t:Math.random()*3,dir:i%2?-1:1,fireT:1.4+i*.6,
+      hp:hpEach,maxHp:hpEach,tier,kind,cyc:Math.floor((tier-1)/20),
+      pat:BOSS_PATS[(tier-1+i)%BOSS_PATS.length],wave:0,hf:0,spawnT:0,
+      wob:Math.random()*7,mini:false,
+      name:BOSS_NAMES[(kind-1)%BOSS_NAMES.length]});
+  }
+  banner("☠ "+cnt+" وحوش قادمون — كل وحش مختلف!");
+  SFX.roar();
+}
+function spawnMini(){ /* حارس المرحلة: وحش صغير سريع يظهر قبل إتمام المرحلة */
+  const tier=Math.ceil(level/5);
+  const hpMax=Math.round((18+level*1.6)*bossPower(tier));
+  const kind=((level*3+2)%20)+1;
+  bosses.push({x:W()/2,y:-70,r:34,t:0,dir:1,fireT:1.2,hp:hpMax,maxHp:hpMax,tier,kind,
+    cyc:Math.floor((tier-1)/20),pat:BOSS_PATS[level%BOSS_PATS.length],wave:0,hf:0,
+    spawnT:0,wob:Math.random()*7,mini:true,
+    name:BOSS_NAMES[(kind-1)%BOSS_NAMES.length]});
+  banner("☠ حارس المرحلة ظهر!");
   SFX.roar();
 }
 const BOSS_COLS=["#E0524B","#E88A3C","#B84FD0","#E8D24B","#6FE07A","#4BD9E0","#4B79E0","#9B5BE0",
@@ -1663,17 +1693,50 @@ function drawBoss(b){
       ctx.fill();
     }
   }
+  /* دخول مرن: الوحش يتمدد بحيوية عند ظهوره */
+  if(b.spawnT<1){const sc=.25+.75*easeOutBack(Math.min(1,b.spawnT));ctx.scale(sc,sc);}
+  /* عينان احترافيتان تلاحقان اللاعب أينما تحرك */
+  drawMonsterEyes(b,np);
   ctx.restore();
 
-  /* شريط الصحة */
-  const bw=Math.min(W()-120,380);
-  ctx.fillStyle="rgba(255,255,255,.14)";
-  ctx.beginPath();ctx.roundRect(W()/2-bw/2,40,bw,9,4.5);ctx.fill();
+  /* شريط صحة صغير فوق كل وحش (مع عدة وحوش في نفس المرحلة) */
+  const bw=b.r*2.2;
+  ctx.fillStyle="rgba(255,255,255,.16)";
+  ctx.beginPath();ctx.roundRect(b.x-bw/2,b.y-b.r-26,bw,7,3.5);ctx.fill();
   ctx.fillStyle=col;
-  ctx.beginPath();ctx.roundRect(W()/2-bw/2,40,Math.max(bw*Math.max(0,b.hp/b.maxHp),9),9,4.5);ctx.fill();
-  ctx.fillStyle=COL.paper;ctx.font="600 14px Changa, Tahoma";ctx.textAlign="center";
-  ctx.fillText(b.name,W()/2,32);
+  ctx.beginPath();ctx.roundRect(b.x-bw/2,b.y-b.r-26,Math.max(bw*Math.max(0,b.hp/b.maxHp),4),7,3.5);ctx.fill();
+  ctx.fillStyle=COL.paper;ctx.font="600 12px Changa, Tahoma";ctx.textAlign="center";
+  ctx.fillText(b.name,b.x,b.y-b.r-32);
 }
+/* عينان تتبعان اللاعب: البؤبؤ يلاحقه، والعين تلمع وتغمض — دالة عامة لكل الوحوش الكبار والصغار */
+function drawEyes(cx,cy,R,t,wob,dark,np,es){
+  es=es||1;
+  const eyeR=Math.max(2.2,R*.15*es);
+  const ang=Math.atan2((np?np.y:cy+400)-cy,(np?np.x:cx)-cx);
+  const blink=Math.sin(t*1.7+wob);
+  const openY=blink>.93?.12:1;
+  for(const s of[-1,1]){
+    const ex=s*R*.30*es,ey=-R*.18*es;
+    /* توهج حول العين */
+    ctx.save();ctx.globalCompositeOperation="lighter";
+    const gg=ctx.createRadialGradient(ex,ey,0,ex,ey,eyeR*2.6);
+    gg.addColorStop(0,"rgba(255,238,170,.45)");gg.addColorStop(1,"rgba(0,0,0,0)");
+    ctx.fillStyle=gg;ctx.beginPath();ctx.arc(ex,ey,eyeR*2.6,0,7);ctx.fill();
+    ctx.restore();
+    /* بياض العين مع رمش */
+    ctx.save();ctx.translate(ex,ey);ctx.scale(1,openY);
+    ctx.fillStyle="#F4F0E6";ctx.beginPath();ctx.arc(0,0,eyeR,0,7);ctx.fill();
+    ctx.strokeStyle="rgba(0,0,0,.55)";ctx.lineWidth=2;ctx.stroke();
+    /* القزحية والبؤبؤ يتبعان اللاعب */
+    const px=Math.cos(ang)*eyeR*.42,py=Math.sin(ang)*eyeR*.42;
+    ctx.fillStyle=dark?"#7A2E12":"#1C3A6E";
+    ctx.beginPath();ctx.arc(px,py,eyeR*.62,0,7);ctx.fill();
+    ctx.fillStyle="#0A0A0A";ctx.beginPath();ctx.arc(px,py,eyeR*.3,0,7);ctx.fill();
+    ctx.fillStyle="rgba(255,255,255,.9)";ctx.beginPath();ctx.arc(px-eyeR*.16,py-eyeR*.18,eyeR*.12,0,7);ctx.fill();
+    ctx.restore();
+  }
+}
+function drawMonsterEyes(b,np){drawEyes(b.x,b.y,b.r,b.t,b.wob,b.kind%2,np,1);}
 
 
 const POWERS=[{k:"T",c:()=>COL.gold,txt:"ثلاثي"},{k:"S",c:()=>COL.player,txt:"درع"},{k:"W",c:()=>COL.drone,txt:"إبطاء"}];
@@ -1841,12 +1904,13 @@ function levelConfig(n){
     interval:Math.max(.24,1.1-n*.02)};
 }
 function startLevel(n){
+  if(state==="exit")state="playing"; /* بعد أنيميشن الانطلاق نعود للعب مباشرة */
   level=n;ui.level.textContent=n;
   const tier=Math.floor((n-1)/10)+1,tierUp=tier!==lastTier;lastTier=tier;
   const nbCols=["drone","boss","gold","player"];
   nebulae.forEach((nb,i)=>nb.c=nbCols[(Math.ceil(n/5)+i)%4]);
   const c=levelConfig(n);
-  spawned=0;toSpawn=c.count;spawnT=.8;levelDone=false;
+  spawned=0;toSpawn=c.count;spawnT=.8;levelDone=false;miniDone=false;exitT=0;
   /* كل خمس مراحل تعود الطلقات الملتقطة لخط واحد */
   const resetShots=n%5===1;
   if(resetShots)players.forEach(p=>{p.tripleLv=0;p.tripleT=0;});
@@ -1947,23 +2011,46 @@ function gameOver(){
   if(mode==="net"&&netIsHost)netSend({t:"ev",k:"over",sc});
 }
 function completeLevel(){
-  levelDone=true;state="done";SFX.win();
+  levelDone=true;SFX.win();
   cleared[level]=true;store("space-cleared",JSON.stringify(cleared));
   if(level+1>unlocked&&level<MAX_LEVELS){unlocked=level+1;store("space-unlocked",unlocked);}
   updateResumeNote();
   const sc=totalScore();
   if(sc>hiScore){hiScore=sc;store("space-hi",hiScore);ui.hi.textContent=hiScore;}
-  $("doneLv").textContent=" أكملت المرحلة "+level;
   const bonus=(25+level*5)+15*upLv("gold");
   players.forEach(p=>{addCoins(p.pi,bonus);});
   if(mode==="net")profStore(0);else saveEco();
   updateCoinsLbl();
-  const dinfo="النقاط: "+sc+"  •  الذهب +"+bonus+" 🪙 لكل لاعب (الرصيد "+prof[0].coins+(players.length>2?" / "+prof[1].coins+" / "+prof[2].coins:players.length>1?" / "+prof[1].coins:"")+")";
-  $("doneScore").textContent=dinfo;
-  $("nextBtn").textContent=level>=MAX_LEVELS?"أكملت الكل! 🏆":"المرحلة التالية ►";
-  $("nextBtn").disabled=level>=MAX_LEVELS;
-  show(ui.done);confetti();
-  if(mode==="net"&&netIsHost)netSend({t:"ev",k:"done",lv:level,sc,info:dinfo,maxed:level>=MAX_LEVELS});
+  if(mode==="net"){ /* في الشبكة تبقى شاشة الإتمام كما هي */
+    const dinfo="النقاط: "+sc+"  •  الذهب +"+bonus+" 🪙 لكل لاعب (الرصيد "+prof[0].coins+(players.length>2?" / "+prof[1].coins+" / "+prof[2].coins:players.length>1?" / "+prof[1].coins:"")+")";
+    $("doneLv").textContent=" أكملت المرحلة "+level;
+    $("doneScore").textContent=dinfo;
+    $("nextBtn").textContent=level>=MAX_LEVELS?"أكملت الكل! 🏆":"المرحلة التالية ►";
+    $("nextBtn").disabled=level>=MAX_LEVELS;
+    state="done";show(ui.done);confetti();
+    if(netIsHost)netSend({t:"ev",k:"done",lv:level,sc,info:dinfo,maxed:level>=MAX_LEVELS});
+    return;
+  }
+  /* محليًا: لا شاشة فوز فورية — الطائرة تنطلق بعيدًا ثم ننتقل تلقائيًا للمرحلة التالية */
+  state="exit";exitT=0;ebullets=[];confetti();
+  banner("🏆 أكملت المرحلة "+level+" — انطلاق! +"+bonus+" 🪙");
+}
+/* أنيميشن انطلاق الطائرة بعد الفوز: تسارع للأعلى مع لهب محرك ثم المرحلة التالية */
+function updateExit(dt){
+  exitT+=dt;
+  for(const p of players)if(p&&p.alive){
+    p.y-=(150+exitT*950)*dt;
+    p.tilt=Math.sin(exitT*9)*.08;
+    parts.push({x:p.x+(Math.random()-.5)*20,y:p.y-70*p.face,vx:(Math.random()-.5)*30,
+      vy:-120*p.face,life:.4,t:0,c:Math.random()<.5?"#FFC24B":"#FF7A3C",r:3+Math.random()*4,smoke:1});
+  }
+  if(exitT>1.7&&state==="exit"){
+    if(level<MAX_LEVELS)startLevel(level+1);
+    else{state="done";$("doneLv").textContent=" أكملت كل المراحل!";
+      $("nextBtn").disabled=true;$("nextBtn").textContent="أكملت الكل! 🏆";
+      $("doneScore").textContent="النقاط: "+totalScore();
+      show(ui.done);confetti();}
+  }
 }
 
 function update(dt){
@@ -2080,19 +2167,25 @@ function update(dt){
         break;
       }
     }
-    if(!hit&&boss&&(b.x-boss.x)**2+(b.y-boss.y)**2<boss.r*boss.r){
-      boss.hp-=b.dmg;hit=true;boss.hf=.08;burst(b.x,b.y,b.col||"#FFE0A6",4,.6);SFX.hit();
-      if(settings.shake)shake=Math.min(shake+1.5,10);
-      if(boss.hp<=0){
-        const o=b.own||aps[0];
-        const pts=Math.round(600*mult(o));o.score+=pts;
-        pop(boss.x,boss.y,"+"+pts,COL.gold);
-        const bc=30+level*4;addCoins(o.pi,bc);
-        pop(boss.x,boss.y-46,"+"+bc+" 🪙",COL.gold);
-        burst(boss.x,boss.y,bossCol(boss.kind),60,2);SFX.bigBoom();
-        if(settings.shake)shake=18;
-        dropLoot(boss.x,boss.y,true);dropLoot(boss.x-40,boss.y+10,true);
-        boss=null;toSpawn=Math.max(0,spawned);
+    if(!hit)for(let bi=bosses.length-1;bi>=0;bi--){
+      const bs=bosses[bi];
+      if((b.x-bs.x)**2+(b.y-bs.y)**2<bs.r*bs.r){
+        bs.hp-=b.dmg;hit=true;bs.hf=.08;burst(b.x,b.y,b.col||"#FFE0A6",4,.6);SFX.hit();
+        if(settings.shake)shake=Math.min(shake+1.5,10);
+        if(bs.hp<=0){
+          const o=b.own||aps[0];
+          const pts=Math.round(600*mult(o));o.score+=pts;
+          pop(bs.x,bs.y,"+"+pts,COL.gold);
+          const bc=30+level*4;addCoins(o.pi,bc);
+          pop(bs.x,bs.y-46,"+"+bc+" 🪙",COL.gold);
+          burst(bs.x,bs.y,bossCol(bs.kind),60,2);SFX.bigBoom();
+          if(settings.shake)shake=18;
+          dropLoot(bs.x,bs.y,true);dropLoot(bs.x-40,bs.y+10,true);
+          bosses.splice(bi,1);
+          if(bosses.length===0)toSpawn=Math.max(0,spawned);
+          else banner("☠ بقي "+bosses.length+" وحش!");
+        }
+        break;
       }
     }
     if(!hit)for(let j=drones.length-1;j>=0;j--){
@@ -2182,18 +2275,21 @@ function update(dt){
       if((b.x-p.x)**2+(b.y-p.y)**2<(p.r+5)**2){ebullets.splice(i,1);damagePlayer(p);break;}
   }
 
-  if(boss){
+  for(const boss of bosses){
+    if(boss.spawnT<1)boss.spawnT=Math.min(1,boss.spawnT+dts*1.4);
     if(boss.hf>0)boss.hf-=dts;
     boss.t+=dts;
     if(boss.y<120)boss.y+=55*dts;
     else{
-      boss.x+=boss.dir*(70+level*3)*dts;
+      boss.x+=boss.dir*(70+level*3)*(boss.mini?1.7:1)*dts;
+      boss.x+=Math.sin(boss.t*1.3+boss.wob)*34*dts; /* تمايل حي لا يتوقف */
       if(boss.x<90)boss.dir=1;if(boss.x>W()-90)boss.dir=-1;
       boss.fireT-=dts;
       if(boss.fireT<=0){
         const ratio=boss.hp/boss.maxHp;
-        boss.fireT=ratio<.4?.9:1.4;
-        const bs=190+Math.min(level*2.5,150),bx=boss.x,by=boss.y+boss.r*.5;
+        const tier=Math.ceil(level/5);
+        boss.fireT=(ratio<.4?.9:1.4)*Math.max(.55,Math.pow(.95,tier-1)); /* إطلاق أسرع مع كل 5 مراحل */
+        const bs=190+Math.min(level*2.5,150)+tier*6,bx=boss.x,by=boss.y+boss.r*.5;
         /* طريقة هجوم الوحش تتغير مع كل مرحلة: مروحة، موجه، حلزون، مطر */
         if(boss.pat==="spiral"){
           boss.wave++;
@@ -2249,7 +2345,9 @@ function update(dt){
   ui.score3.classList.toggle("hidden",players.length<3);
   if(players[2])ui.score3.textContent="🟣 "+players[2].score;
 
-  if(aps.length&&spawned>=toSpawn&&rocks.length===0&&drones.length===0&&!boss&&!levelDone){
+  if(aps.length&&spawned>=toSpawn&&rocks.length===0&&drones.length===0&&bosses.length===0&&!levelDone){
+    /* حارس المرحلة: وحش إضافي يظهر قبل الإتمام في المراحل العادية من الثامنة */
+    if(level>=8&&!miniDone&&(mode!=="net"||netIsHost)){miniDone=true;spawnMini();return;}
     completeLevel();
   }
 }
@@ -2337,7 +2435,7 @@ function draw(){
   for(const k of pickups)drawPickup(k);
   for(const r of rocks)drawRock(r);
   for(const d of drones)drawDrone(d);
-  if(boss)drawBoss(boss);
+  for(const bb of bosses)drawBoss(bb);
 
   for(const b of bullets)drawBullet(b);
   const ecol=skinOf().drone;
@@ -2349,10 +2447,10 @@ function draw(){
     ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(b.x,b.y,2.2,0,7);ctx.fill();
   }
 
-  if(state==="playing"||state==="paused"){
+  if(state==="playing"||state==="paused"||state==="exit"){
     for(const p of players){
       if(!p.alive)continue;
-      drawShip(p,kd(p,"left")||kd(p,"right")||!!touchZone(p.pi),p.inv);
+      drawShip(p,state==="exit"&&Math.sin(exitT*9)>0,kd(p,"left")||kd(p,"right")||!!touchZone(p.pi),p.inv);
       if(p.inv>0){ /* فقاعة الدرع فوق رأس الطائرة: 4 ثوانٍ بعد كل ضربة */
         const t=p.inv,by=p.y+86*p.face;
         ctx.save();
@@ -2399,6 +2497,8 @@ function loop(t){
   if(state==="playing"){
     if(mode==="net"&&!netIsHost)netFrame(dt);
     else update(dt);
+  }else if(state==="exit"){
+    updateExit(dt);
   }
   draw();
   requestAnimationFrame(loop);
@@ -2406,7 +2506,8 @@ function loop(t){
 requestAnimationFrame(t=>{tPrev=t;requestAnimationFrame(loop);});
 
 function clearEntities(){
-  boss=null;players=[];bullets=[];rocks=[];drones=[];ebullets=[];pickups=[];parts=[];pops=[];shoots=[];
+  bosses=[];players=[];bullets=[];rocks=[];drones=[];ebullets=[];pickups=[];parts=[];pops=[];shoots=[];
+  exitT=0;miniDone=false;
   shake=0;timeScale=1;slowT=0;attackT=4;
 }
 function show(scr){
@@ -2825,8 +2926,9 @@ function snap(){
     rk:rocks.map(r=>[r.s,nx(r.x),ny(r.y),Math.round(r.r*sw*10)/10]),
     dr:drones.map(d=>[nx(d.x),ny(d.y),Math.round(d.t*10)/10]),
     pk:pickups.map(k=>[nx(k.x),ny(k.y),k.type]),
-    bs:boss?[nx(boss.x),ny(boss.y),Math.round(boss.r*sw),boss.kind,
-      Math.round(boss.t*100)/100,Math.round(boss.hp),boss.maxHp,boss.tier]:0};
+    bs:bosses.map(b=>[nx(b.x),ny(b.y),Math.round(b.r*sw),b.kind,
+      Math.round(b.t*100)/100,Math.round(b.hp),b.maxHp,b.tier,
+      Math.round(b.spawnT*100)/100,b.mini?1:0])};
 }
 /* دمج سلس بين اللقطات: كل عنصر يحتفظ بموضعه وينتقل بسلاسة نحو هدفه الجديد */
 function blendList(cur,arr,init,upd){
@@ -2862,9 +2964,9 @@ function applySnap(m){
   let mineN=0;for(const b of m.bl)if(b[2])mineN++;
   if(mineN>prevMine)SFX.shoot();
   prevMine=mineN;
-  if(m.bs&&!prevBoss)SFX.roar();
-  if(!m.bs&&prevBoss&&m.st==="playing")SFX.bigBoom();
-  prevBoss=!!m.bs;
+  if(m.bs.length&&!prevBoss)SFX.roar();
+  if(!m.bs.length&&prevBoss&&m.st==="playing")SFX.bigBoom();
+  prevBoss=m.bs.length>0;
   if(m.rk.length<prevRocks)SFX.boom();
   prevRocks=m.rk.length;
   if(m.dr.length<prevDrones)SFX.boom();
@@ -2881,8 +2983,9 @@ function applySnap(m){
   drones=blendList(drones,m.dr,a=>({x:gxn(a[0]),y:gyn(a[1])}),(o,a)=>{o.t=a[2];});
   const PCOL={T:COL.gold,S:COL.player,W:COL.drone,d:COL.gold};
   pickups=m.pk.map(a=>({x:gxn(a[0]),y:gyn(a[1]),type:a[2],c:PCOL[a[2]]||COL.gold,txt:"",t:0}));
-  boss=m.bs?{x:gxn(m.bs[0]),y:gyn(m.bs[1]),r:m.bs[2]*W()/1000,kind:m.bs[3],t:m.bs[4],hp:m.bs[5],maxHp:m.bs[6],
-    tier:m.bs[7],name:BOSS_NAMES[(m.bs[7]-1)%BOSS_NAMES.length]}:null;
+  bosses=(m.bs||[]).map(a=>({x:gxn(a[0]),y:gyn(a[1]),r:a[2]*W()/1000,kind:a[3],t:a[4],hp:a[5],maxHp:a[6],
+    tier:a[7],spawnT:a[8]===undefined?1:a[8],mini:!!a[9],
+    name:BOSS_NAMES[(a[3]-1)%BOSS_NAMES.length],dir:1,wob:0,hf:0,pat:"fan",cyc:0,wave:0}));
   /* HUD */
   if(players[0])ui.score.textContent=players[0].score;
   ui.score2.classList.toggle("hidden",players.length<2);
